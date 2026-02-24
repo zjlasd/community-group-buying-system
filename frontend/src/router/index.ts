@@ -28,6 +28,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '订单管理', icon: 'List', roles: ['admin'] }
       },
       {
+        path: 'product-manage',
+        name: 'ProductManage',
+        component: () => import('@/views/ProductManage/index.vue'),
+        meta: { title: '商品管理', icon: 'Goods', roles: ['admin'] }
+      },
+      {
         path: 'leader',
         name: 'Leader',
         component: () => import('@/views/Leader/index.vue'),

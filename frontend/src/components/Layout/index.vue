@@ -25,6 +25,10 @@
               <el-icon><List /></el-icon>
               <template #title>订单管理</template>
             </el-menu-item>
+            <el-menu-item index="/product-manage">
+              <el-icon><Goods /></el-icon>
+              <template #title>商品管理</template>
+            </el-menu-item>
             <el-menu-item index="/leader">
               <el-icon><User /></el-icon>
               <template #title>团长管理</template>
