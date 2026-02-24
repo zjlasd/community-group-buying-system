@@ -1,0 +1,35 @@
+{
+  "name": "community-group-buying-backend",
+  "version": "1.0.0",
+  "description": "社区团购团长分销与订单汇总系统 - 后端API",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "init-db": "node src/scripts/init-db.js",
+    "seed": "node src/scripts/seed-data.js"
+  },
+  "keywords": [
+    "community",
+    "group-buying",
+    "leader",
+    "commission"
+  ],
+  "author": "张建亮",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.0",
+    "sequelize": "^6.33.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express-validator": "^7.0.1",
+    "winston": "^3.10.0",
+    "exceljs": "^4.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
