@@ -71,7 +71,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="下单时间" width="180" />
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="viewDetail(row)">
               <el-icon><View /></el-icon>
@@ -85,6 +85,15 @@
             >
               <el-icon><Check /></el-icon>
               确认收货
+            </el-button>
+            <el-button
+              v-if="row.status === 3 && !row.verified"
+              type="warning"
+              link
+              @click="verifyOrder(row)"
+            >
+              <el-icon><CircleCheck /></el-icon>
+              订单核销
             </el-button>
           </template>
         </el-table-column>
@@ -121,6 +130,11 @@
           ¥{{ currentOrder.commission.toFixed(2) }}
         </el-descriptions-item>
         <el-descriptions-item label="下单时间">{{ currentOrder.createTime }}</el-descriptions-item>
+        <el-descriptions-item label="核销状态">
+          <el-tag :type="currentOrder.verified ? 'success' : 'info'">
+            {{ currentOrder.verified ? '已核销' : '待核销' }}
+          </el-tag>
+        </el-descriptions-item>
         <el-descriptions-item label="配送地址" :span="2">
           {{ currentOrder.address }}
         </el-descriptions-item>
@@ -141,6 +155,47 @@
         </el-table-column>
       </el-table>
     </el-dialog>
+
+    <!-- 订单核销对话框 -->
+    <el-dialog v-model="verifyDialogVisible" title="订单核销" width="500px">
+      <el-form :model="verifyForm" label-width="100px">
+        <el-form-item label="订单号">
+          <el-input v-model="verifyForm.orderNo" disabled />
+        </el-form-item>
+        <el-form-item label="客户姓名">
+          <el-input v-model="verifyForm.customerName" disabled />
+        </el-form-item>
+        <el-form-item label="订单金额">
+          <el-input v-model="verifyForm.amount" disabled>
+            <template #prepend>¥</template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="预计佣金">
+          <el-input v-model="verifyForm.commission" disabled>
+            <template #prepend>¥</template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="核销码">
+          <el-input
+            v-model="verifyForm.code"
+            placeholder="请输入6位核销码"
+            maxlength="6"
+            clearable
+          >
+            <template #append>
+              <el-button @click="scanCode">扫码</el-button>
+            </template>
+          </el-input>
+          <div style="margin-top: 8px; font-size: 12px; color: #909399">
+            提示：核销码为订单号后6位，例如：{{ verifyForm.orderNo?.slice(-6) }}
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="verifyDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmVerify">确认核销</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -150,7 +205,16 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
 const detailDialogVisible = ref(false)
+const verifyDialogVisible = ref(false)
 const currentOrder = ref<any>(null)
+
+const verifyForm = reactive({
+  orderNo: '',
+  customerName: '',
+  amount: '',
+  commission: '',
+  code: ''
+})
 
 const searchForm = reactive({
   status: undefined as number | undefined,
@@ -173,6 +237,7 @@ const orderList = ref([
     amount: 158.5,
     commission: 19.02,
     status: 3,
+    verified: false,
     createTime: '2024-02-24 10:30:25',
     address: '阳光小区3栋1单元201',
     remark: '尽快配送',
@@ -189,6 +254,7 @@ const orderList = ref([
     amount: 268.0,
     commission: 32.16,
     status: 3,
+    verified: true,
     createTime: '2024-02-24 09:15:18',
     address: '阳光小区5栋2单元302',
     remark: '',
@@ -204,6 +270,7 @@ const orderList = ref([
     amount: 198.5,
     commission: 23.82,
     status: 2,
+    verified: false,
     createTime: '2024-02-23 16:45:33',
     address: '阳光小区2栋3单元101',
     remark: '请轻拿轻放',
@@ -219,6 +286,7 @@ const orderList = ref([
     amount: 326.0,
     commission: 39.12,
     status: 2,
+    verified: false,
     createTime: '2024-02-23 14:20:10',
     address: '阳光小区1栋1单元501',
     remark: '',
@@ -235,6 +303,7 @@ const orderList = ref([
     amount: 185.0,
     commission: 22.2,
     status: 1,
+    verified: false,
     createTime: '2024-02-22 11:30:50',
     address: '阳光小区4栋2单元402',
     remark: '周末配送',
@@ -284,11 +353,54 @@ const confirmReceived = (row: any) => {
   })
     .then(() => {
       row.status = 3
-      ElMessage.success('确认收货成功')
+      ElMessage.success('确认收货成功，等待客户自提核销')
     })
     .catch(() => {
       ElMessage.info('已取消')
     })
+}
+
+// 订单核销
+const verifyOrder = (row: any) => {
+  verifyForm.orderNo = row.orderNo
+  verifyForm.customerName = row.customerName
+  verifyForm.amount = row.amount.toFixed(2)
+  verifyForm.commission = row.commission.toFixed(2)
+  verifyForm.code = ''
+  verifyDialogVisible.value = true
+}
+
+// 模拟扫码功能
+const scanCode = () => {
+  ElMessage.info('扫码功能需要调用摄像头，演示环境使用后6位数字')
+  verifyForm.code = verifyForm.orderNo.slice(-6)
+}
+
+// 确认核销
+const confirmVerify = () => {
+  if (!verifyForm.code) {
+    ElMessage.warning('请输入核销码')
+    return
+  }
+  
+  // 验证核销码（简单验证：订单号后6位）
+  const correctCode = verifyForm.orderNo.slice(-6)
+  if (verifyForm.code !== correctCode) {
+    ElMessage.error('核销码错误，请重新输入')
+    return
+  }
+
+  // 查找订单并更新状态
+  const order = orderList.value.find(o => o.orderNo === verifyForm.orderNo)
+  if (order) {
+    order.verified = true
+    ElMessage({
+      message: `核销成功！已获得佣金 ¥${order.commission.toFixed(2)}`,
+      type: 'success',
+      duration: 3000
+    })
+    verifyDialogVisible.value = false
+  }
 }
 </script>
 

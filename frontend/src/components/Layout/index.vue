@@ -45,6 +45,18 @@
               <el-icon><List /></el-icon>
               <template #title>我的订单</template>
             </el-menu-item>
+            <el-menu-item index="/products">
+              <el-icon><Goods /></el-icon>
+              <template #title>可推广商品</template>
+            </el-menu-item>
+            <el-menu-item index="/customers">
+              <el-icon><UserFilled /></el-icon>
+              <template #title>客户管理</template>
+            </el-menu-item>
+            <el-menu-item index="/withdraw">
+              <el-icon><Wallet /></el-icon>
+              <template #title>提现管理</template>
+            </el-menu-item>
           </template>
         </el-menu>
       </el-aside>

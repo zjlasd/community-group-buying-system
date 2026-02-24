@@ -51,6 +51,24 @@ const routes: RouteRecordRaw[] = [
         name: 'MyOrders',
         component: () => import('@/views/MyOrders/index.vue'),
         meta: { title: '我的订单', icon: 'List', roles: ['leader'] }
+      },
+      {
+        path: 'products',
+        name: 'Products',
+        component: () => import('@/views/Products/index.vue'),
+        meta: { title: '可推广商品', icon: 'Goods', roles: ['leader'] }
+      },
+      {
+        path: 'customers',
+        name: 'Customers',
+        component: () => import('@/views/Customers/index.vue'),
+        meta: { title: '客户管理', icon: 'UserFilled', roles: ['leader'] }
+      },
+      {
+        path: 'withdraw',
+        name: 'Withdraw',
+        component: () => import('@/views/Withdraw/index.vue'),
+        meta: { title: '提现管理', icon: 'Wallet', roles: ['leader'] }
       }
     ]
   }
