@@ -15,22 +15,37 @@
           text-color="#bfcbd9"
           active-text-color="#409eff"
         >
-          <el-menu-item index="/dashboard">
-            <el-icon><DataAnalysis /></el-icon>
-            <template #title>数据看板</template>
-          </el-menu-item>
-          <el-menu-item index="/order">
-            <el-icon><List /></el-icon>
-            <template #title>订单管理</template>
-          </el-menu-item>
-          <el-menu-item index="/leader">
-            <el-icon><User /></el-icon>
-            <template #title>团长管理</template>
-          </el-menu-item>
-          <el-menu-item index="/commission">
-            <el-icon><Wallet /></el-icon>
-            <template #title>佣金管理</template>
-          </el-menu-item>
+          <!-- 管理员菜单 -->
+          <template v-if="userStore.isAdmin()">
+            <el-menu-item index="/dashboard">
+              <el-icon><DataAnalysis /></el-icon>
+              <template #title>数据看板</template>
+            </el-menu-item>
+            <el-menu-item index="/order">
+              <el-icon><List /></el-icon>
+              <template #title>订单管理</template>
+            </el-menu-item>
+            <el-menu-item index="/leader">
+              <el-icon><User /></el-icon>
+              <template #title>团长管理</template>
+            </el-menu-item>
+            <el-menu-item index="/commission">
+              <el-icon><Wallet /></el-icon>
+              <template #title>佣金管理</template>
+            </el-menu-item>
+          </template>
+
+          <!-- 团长菜单 -->
+          <template v-if="userStore.isLeader()">
+            <el-menu-item index="/leader-center">
+              <el-icon><User /></el-icon>
+              <template #title>个人中心</template>
+            </el-menu-item>
+            <el-menu-item index="/my-orders">
+              <el-icon><List /></el-icon>
+              <template #title>我的订单</template>
+            </el-menu-item>
+          </template>
         </el-menu>
       </el-aside>
 
@@ -47,13 +62,35 @@
           <div class="header-right">
             <el-dropdown>
               <div class="user-info">
-                <el-avatar :size="32">管</el-avatar>
-                <span class="username">管理员</span>
+                <el-avatar :size="32">
+                  {{ userStore.userInfo?.nickname?.charAt(0) || '用' }}
+                </el-avatar>
+                <span class="username">{{ userStore.userInfo?.nickname }}</span>
+                <el-tag
+                  v-if="userStore.isLeader()"
+                  type="success"
+                  size="small"
+                  style="margin-left: 8px"
+                >
+                  团长
+                </el-tag>
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item>个人中心</el-dropdown-item>
-                  <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
+                  <el-dropdown-item disabled>
+                    <div style="display: flex; flex-direction: column; gap: 4px">
+                      <span style="font-size: 14px; font-weight: bold">
+                        {{ userStore.userInfo?.nickname }}
+                      </span>
+                      <span style="font-size: 12px; color: #909399">
+                        {{ userStore.isAdmin() ? '系统管理员' : '社区团长' }}
+                      </span>
+                    </div>
+                  </el-dropdown-item>
+                  <el-dropdown-item divided @click="handleLogout">
+                    <el-icon><SwitchButton /></el-icon>
+                    退出登录
+                  </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -73,9 +110,11 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 const isCollapse = ref(false)
 
 const activeMenu = computed(() => route.path)
@@ -85,6 +124,7 @@ const toggleCollapse = () => {
 }
 
 const handleLogout = () => {
+  userStore.logout()
   ElMessage.success('退出登录成功')
   router.push('/login')
 }

@@ -78,8 +78,10 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const formRef = ref<FormInstance>()
 
 const loginForm = reactive({
@@ -92,14 +94,56 @@ const rules: FormRules = {
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
 
+// 模拟用户数据
+const mockUsers = {
+  admin: {
+    id: 1,
+    username: 'admin',
+    nickname: '系统管理员',
+    role: 'admin' as const,
+    password: '123456'
+  },
+  leader: {
+    id: 2,
+    username: 'leader',
+    nickname: '张阿姨',
+    role: 'leader' as const,
+    password: '123456',
+    leaderId: 1,
+    commissionRate: 0.12
+  }
+}
+
 const handleLogin = async () => {
   if (!formRef.value) return
 
   await formRef.value.validate((valid) => {
     if (valid) {
-      // 模拟登录
-      ElMessage.success('登录成功')
-      router.push('/')
+      // 模拟登录验证
+      const user = mockUsers[loginForm.username as keyof typeof mockUsers]
+      
+      if (!user) {
+        ElMessage.error('用户名不存在')
+        return
+      }
+      
+      if (user.password !== loginForm.password) {
+        ElMessage.error('密码错误')
+        return
+      }
+
+      // 登录成功,保存用户信息
+      const { password, ...userInfo } = user
+      userStore.login(userInfo, 'mock-token-' + Date.now())
+      
+      ElMessage.success(`欢迎${userInfo.nickname}`)
+      
+      // 根据角色跳转不同页面
+      if (userInfo.role === 'admin') {
+        router.push('/dashboard')
+      } else {
+        router.push('/leader-center')
+      }
     }
   })
 }
