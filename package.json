@@ -1,0 +1,33 @@
+{
+  "name": "community-group-buying-system",
+  "version": "1.0.0",
+  "description": "太原理工大学毕业设计 - 社区团购团长分销与订单汇总系统",
+  "author": "张建亮 <2022005566>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "dev": "concurrently \"pnpm dev:frontend\" \"pnpm dev:backend\"",
+    "build:frontend": "pnpm --filter frontend build",
+    "build:backend": "pnpm --filter backend build",
+    "build": "pnpm build:frontend && pnpm build:backend",
+    "install:all": "pnpm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "keywords": [
+    "社区团购",
+    "团长分销",
+    "订单管理",
+    "Vue3",
+    "Node.js",
+    "毕业设计"
+  ],
+  "packageManager": "pnpm@8.15.6+sha512.77b89e9be77a2b06ad8f403a19cae5e22976f61023f98ad323d5c30194958ebc02ee0a6ae5d13ee454f6134e4e8caf29a05f0b1a0e1d2b17bca6b6a1f1159f86"
+}
