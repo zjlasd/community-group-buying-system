@@ -6,7 +6,7 @@
         <el-card shadow="hover" class="stat-card">
           <div class="stat-content">
             <div class="stat-info">
-              <div class="stat-title">今日收益</div>
+              <div class="stat-title">今日佣金支出</div>
               <div class="stat-value">¥{{ stats.todayIncome.toFixed(2) }}</div>
             </div>
             <el-icon class="stat-icon" color="#67c23a"><TrendCharts /></el-icon>
@@ -18,7 +18,7 @@
         <el-card shadow="hover" class="stat-card">
           <div class="stat-content">
             <div class="stat-info">
-              <div class="stat-title">本月收益</div>
+              <div class="stat-title">本月佣金支出</div>
               <div class="stat-value">¥{{ stats.monthIncome.toFixed(2) }}</div>
             </div>
             <el-icon class="stat-icon" color="#409eff"><Money /></el-icon>
@@ -30,7 +30,7 @@
         <el-card shadow="hover" class="stat-card">
           <div class="stat-content">
             <div class="stat-info">
-              <div class="stat-title">累计收益</div>
+              <div class="stat-title">累计佣金支出</div>
               <div class="stat-value">¥{{ stats.totalIncome.toFixed(2) }}</div>
             </div>
             <el-icon class="stat-icon" color="#f56c6c"><WalletFilled /></el-icon>
@@ -42,11 +42,11 @@
         <el-card shadow="hover" class="stat-card balance-card">
           <div class="stat-content">
             <div class="stat-info">
-              <div class="stat-title">可提现余额</div>
+              <div class="stat-title">待审核提现</div>
               <div class="stat-value balance">¥{{ stats.balance.toFixed(2) }}</div>
-              <el-button type="primary" size="small" style="margin-top: 10px" @click="handleWithdraw">
-                申请提现
-              </el-button>
+              <div style="margin-top: 8px; font-size: 12px; opacity: 0.9">
+                团长待审核的提现金额
+              </div>
             </div>
             <el-icon class="stat-icon" color="#e6a23c"><Wallet /></el-icon>
           </div>
@@ -54,11 +54,11 @@
       </el-col>
     </el-row>
 
-    <!-- 收益趋势图 -->
+    <!-- 佣金支出趋势图 -->
     <el-card shadow="hover" style="margin-top: 20px">
       <template #header>
         <div class="card-header">
-          <span>收益趋势</span>
+          <span>佣金支出趋势</span>
           <el-radio-group v-model="trendType" size="small">
             <el-radio-button value="week">近7天</el-radio-button>
             <el-radio-button value="month">近30天</el-radio-button>
@@ -288,7 +288,7 @@ const initChart = () => {
   const option: EChartsOption = {
     tooltip: {
       trigger: 'axis',
-      formatter: '{b}<br/>收益: ¥{c}'
+      formatter: '{b}<br/>佣金支出: ¥{c}'
     },
     xAxis: {
       type: 'category',
@@ -296,11 +296,11 @@ const initChart = () => {
     },
     yAxis: {
       type: 'value',
-      name: '收益（元）'
+      name: '佣金支出（元）'
     },
     series: [
       {
-        name: '收益',
+        name: '佣金支出',
         type: 'line',
         smooth: true,
         data: data.incomes,
