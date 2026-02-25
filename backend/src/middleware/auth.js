@@ -19,7 +19,8 @@ const auth = async (req, res, next) => {
     
     // 将用户信息挂载到请求对象
     req.user = {
-      id: decoded.id,
+      id: decoded.id || decoded.userId,  // 兼容id和userId字段
+      userId: decoded.userId || decoded.id,
       username: decoded.username,
       role: decoded.role
     }

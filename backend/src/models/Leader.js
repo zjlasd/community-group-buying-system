@@ -19,6 +19,16 @@ module.exports = (sequelize) => {
       field: 'community_id',
       comment: '关联社区ID'
     },
+    name: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      comment: '团长姓名'
+    },
+    phone: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      comment: '联系电话'
+    },
     commissionRate: {
       type: DataTypes.DECIMAL(5, 2),
       defaultValue: 12.00,

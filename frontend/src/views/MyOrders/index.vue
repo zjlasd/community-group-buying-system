@@ -53,14 +53,14 @@
         <el-table-column prop="orderNo" label="订单号" width="180" fixed />
         <el-table-column prop="customerName" label="客户姓名" width="120" />
         <el-table-column prop="customerPhone" label="联系电话" width="130" />
-        <el-table-column prop="amount" label="订单金额" width="120">
+        <el-table-column label="订单金额" width="120">
           <template #default="{ row }">
-            <span class="amount">¥{{ row.amount.toFixed(2) }}</span>
+            <span class="amount">¥{{ parseFloat(row.totalAmount).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="commission" label="我的佣金" width="120">
+        <el-table-column label="我的佣金" width="120">
           <template #default="{ row }">
-            <span class="commission">¥{{ row.commission.toFixed(2) }}</span>
+            <span class="commission">¥{{ parseFloat(row.commissionAmount).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="订单状态" width="100">
@@ -70,7 +70,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="下单时间" width="180" />
+        <el-table-column label="下单时间" width="180">
+          <template #default="{ row }">
+            {{ new Date(row.createdAt).toLocaleString() }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="viewDetail(row)">
@@ -78,7 +82,7 @@
               查看详情
             </el-button>
             <el-button
-              v-if="row.status === 2"
+              v-if="row.status === 'delivering'"
               type="success"
               link
               @click="confirmReceived(row)"
@@ -87,7 +91,7 @@
               确认收货
             </el-button>
             <el-button
-              v-if="row.status === 3 && !row.verified"
+              v-if="row.status === 'pickup'"
               type="warning"
               link
               @click="verifyOrder(row)"
@@ -124,34 +128,33 @@
         <el-descriptions-item label="客户姓名">{{ currentOrder.customerName }}</el-descriptions-item>
         <el-descriptions-item label="联系电话">{{ currentOrder.customerPhone }}</el-descriptions-item>
         <el-descriptions-item label="订单金额">
-          ¥{{ currentOrder.amount.toFixed(2) }}
+          ¥{{ parseFloat(currentOrder.totalAmount).toFixed(2) }}
         </el-descriptions-item>
         <el-descriptions-item label="我的佣金">
-          ¥{{ currentOrder.commission.toFixed(2) }}
+          ¥{{ parseFloat(currentOrder.commissionAmount).toFixed(2) }}
         </el-descriptions-item>
-        <el-descriptions-item label="下单时间">{{ currentOrder.createTime }}</el-descriptions-item>
+        <el-descriptions-item label="下单时间">
+          {{ new Date(currentOrder.createdAt).toLocaleString() }}
+        </el-descriptions-item>
         <el-descriptions-item label="核销状态">
-          <el-tag :type="currentOrder.verified ? 'success' : 'info'">
-            {{ currentOrder.verified ? '已核销' : '待核销' }}
+          <el-tag :type="currentOrder.status === 'completed' ? 'success' : 'info'">
+            {{ currentOrder.status === 'completed' ? '已核销' : '待核销' }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="配送地址" :span="2">
-          {{ currentOrder.address }}
-        </el-descriptions-item>
-        <el-descriptions-item label="订单备注" :span="2">
-          {{ currentOrder.remark || '无' }}
+        <el-descriptions-item label="社区" :span="2">
+          {{ currentOrder.community?.name || '-' }} {{ currentOrder.community?.address || '' }}
         </el-descriptions-item>
       </el-descriptions>
       
       <el-divider>商品明细</el-divider>
       <el-table :data="currentOrder?.items" style="width: 100%">
         <el-table-column prop="productName" label="商品名称" />
-        <el-table-column prop="price" label="单价" width="100">
-          <template #default="{ row }">¥{{ row.price.toFixed(2) }}</template>
+        <el-table-column label="单价" width="100">
+          <template #default="{ row }">¥{{ parseFloat(row.productPrice).toFixed(2) }}</template>
         </el-table-column>
         <el-table-column prop="quantity" label="数量" width="80" />
-        <el-table-column prop="subtotal" label="小计" width="100">
-          <template #default="{ row }">¥{{ row.subtotal.toFixed(2) }}</template>
+        <el-table-column label="小计" width="100">
+          <template #default="{ row }">¥{{ parseFloat(row.subtotal).toFixed(2) }}</template>
         </el-table-column>
       </el-table>
     </el-dialog>
@@ -200,13 +203,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getOrderList, updateOrderStatus, type Order } from '@/api/order'
 
 const loading = ref(false)
 const detailDialogVisible = ref(false)
 const verifyDialogVisible = ref(false)
-const currentOrder = ref<any>(null)
+const currentOrder = ref<Order | null>(null)
 
 const verifyForm = reactive({
   orderNo: '',
@@ -225,147 +229,114 @@ const searchForm = reactive({
 const pagination = reactive({
   page: 1,
   size: 10,
-  total: 25
+  total: 0
 })
 
-// 模拟订单数据(团长自己的订单)
-const orderList = ref([
-  {
-    orderNo: 'O202402240001',
-    customerName: '王女士',
-    customerPhone: '138****5678',
-    amount: 158.5,
-    commission: 19.02,
-    status: 3,
-    verified: false,
-    createTime: '2024-02-24 10:30:25',
-    address: '阳光小区3栋1单元201',
-    remark: '尽快配送',
-    items: [
-      { productName: '新鲜草莓', price: 29.9, quantity: 2, subtotal: 59.8 },
-      { productName: '有机蔬菜包', price: 49.9, quantity: 1, subtotal: 49.9 },
-      { productName: '鲜牛奶', price: 48.8, quantity: 1, subtotal: 48.8 }
-    ]
-  },
-  {
-    orderNo: 'O202402240002',
-    customerName: '李先生',
-    customerPhone: '139****1234',
-    amount: 268.0,
-    commission: 32.16,
-    status: 3,
-    verified: true,
-    createTime: '2024-02-24 09:15:18',
-    address: '阳光小区5栋2单元302',
-    remark: '',
-    items: [
-      { productName: '进口车厘子', price: 89.0, quantity: 2, subtotal: 178.0 },
-      { productName: '新鲜蓝莓', price: 45.0, quantity: 2, subtotal: 90.0 }
-    ]
-  },
-  {
-    orderNo: 'O202402230015',
-    customerName: '赵女士',
-    customerPhone: '136****8765',
-    amount: 198.5,
-    commission: 23.82,
-    status: 2,
-    verified: false,
-    createTime: '2024-02-23 16:45:33',
-    address: '阳光小区2栋3单元101',
-    remark: '请轻拿轻放',
-    items: [
-      { productName: '有机蔬菜包', price: 49.9, quantity: 2, subtotal: 99.8 },
-      { productName: '土鸡蛋', price: 32.9, quantity: 3, subtotal: 98.7 }
-    ]
-  },
-  {
-    orderNo: 'O202402230012',
-    customerName: '刘阿姨',
-    customerPhone: '137****4321',
-    amount: 326.0,
-    commission: 39.12,
-    status: 2,
-    verified: false,
-    createTime: '2024-02-23 14:20:10',
-    address: '阳光小区1栋1单元501',
-    remark: '',
-    items: [
-      { productName: '进口车厘子', price: 89.0, quantity: 2, subtotal: 178.0 },
-      { productName: '新鲜草莓', price: 29.9, quantity: 3, subtotal: 89.7 },
-      { productName: '鲜牛奶', price: 48.8, quantity: 1, subtotal: 48.8 }
-    ]
-  },
-  {
-    orderNo: 'O202402220025',
-    customerName: '陈女士',
-    customerPhone: '135****9876',
-    amount: 185.0,
-    commission: 22.2,
-    status: 1,
-    verified: false,
-    createTime: '2024-02-22 11:30:50',
-    address: '阳光小区4栋2单元402',
-    remark: '周末配送',
-    items: [
-      { productName: '有机蔬菜包', price: 49.9, quantity: 2, subtotal: 99.8 },
-      { productName: '新鲜蓝莓', price: 45.0, quantity: 1, subtotal: 45.0 },
-      { productName: '土鸡蛋', price: 32.9, quantity: 1, subtotal: 32.9 }
-    ]
-  }
-])
+// 订单列表
+const orderList = ref<Order[]>([])
 
-const getStatusText = (status: number) => {
-  const texts = ['待确认', '已确认', '配送中', '已完成', '已取消']
-  return texts[status]
+// 状态映射
+const STATUS_MAP = {
+  'pending': { text: '待成团', type: 'warning', value: 0 },
+  'confirmed': { text: '待配送', type: 'primary', value: 1 },
+  'delivering': { text: '配送中', type: 'info', value: 2 },
+  'pickup': { text: '待自提', type: 'info', value: 3 },
+  'completed': { text: '已完成', type: 'success', value: 4 },
+  'cancelled': { text: '已取消', type: 'danger', value: 5 }
 }
 
-const getStatusType = (status: number) => {
-  const types = ['warning', 'primary', 'info', 'success', 'danger']
-  return types[status] as any
+const STATUS_VALUE_MAP: Record<string, string> = {
+  '': '',
+  '0': 'pending',
+  '1': 'confirmed',
+  '2': 'delivering',
+  '3': 'pickup',
+  '4': 'completed'
+}
+
+// 获取订单列表
+const fetchOrderList = async () => {
+  try {
+    loading.value = true
+
+    const params: any = {
+      page: pagination.page,
+      pageSize: pagination.size,
+      keyword: searchForm.keyword
+    }
+
+    // 状态筛选
+    if (searchForm.status !== undefined) {
+      params.status = STATUS_VALUE_MAP[searchForm.status.toString()] || ''
+    }
+
+    // 添加日期范围
+    if (searchForm.dateRange && searchForm.dateRange.length === 2) {
+      params.startDate = searchForm.dateRange[0]
+      params.endDate = searchForm.dateRange[1]
+    }
+
+    const res = await getOrderList(params)
+    orderList.value = res.data.list
+    pagination.total = res.data.total
+
+    loading.value = false
+  } catch (err: any) {
+    loading.value = false
+    ElMessage.error(err.message || '获取订单列表失败')
+  }
+}
+
+const getStatusText = (status: string) => {
+  return STATUS_MAP[status]?.text || '未知'
+}
+
+const getStatusType = (status: string) => {
+  return STATUS_MAP[status]?.type || 'info'
 }
 
 const handleSearch = () => {
-  loading.value = true
-  setTimeout(() => {
-    loading.value = false
-    ElMessage.success('搜索完成')
-  }, 500)
+  pagination.page = 1
+  fetchOrderList()
 }
 
 const handleReset = () => {
   searchForm.status = undefined
   searchForm.dateRange = []
   searchForm.keyword = ''
-  handleSearch()
+  pagination.page = 1
+  fetchOrderList()
 }
 
-const viewDetail = (row: any) => {
+const viewDetail = (row: Order) => {
   currentOrder.value = row
   detailDialogVisible.value = true
 }
 
-const confirmReceived = (row: any) => {
-  ElMessageBox.confirm('确认已收到配送的商品吗?', '确认收货', {
-    confirmButtonText: '确认',
-    cancelButtonText: '取消',
-    type: 'warning'
-  })
-    .then(() => {
-      row.status = 3
-      ElMessage.success('确认收货成功，等待客户自提核销')
+const confirmReceived = async (row: Order) => {
+  try {
+    await ElMessageBox.confirm('确认已收到配送的商品吗?', '确认收货', {
+      confirmButtonText: '确认',
+      cancelButtonText: '取消',
+      type: 'warning'
     })
-    .catch(() => {
-      ElMessage.info('已取消')
-    })
+
+    await updateOrderStatus(row.id, 'pickup')
+    ElMessage.success('确认收货成功，等待客户自提核销')
+    fetchOrderList()
+  } catch (err: any) {
+    if (err !== 'cancel') {
+      ElMessage.error(err.message || '确认收货失败')
+    }
+  }
 }
 
 // 订单核销
-const verifyOrder = (row: any) => {
+const verifyOrder = (row: Order) => {
   verifyForm.orderNo = row.orderNo
   verifyForm.customerName = row.customerName
-  verifyForm.amount = row.amount.toFixed(2)
-  verifyForm.commission = row.commission.toFixed(2)
+  verifyForm.amount = parseFloat(row.totalAmount).toFixed(2)
+  verifyForm.commission = parseFloat(row.commissionAmount).toFixed(2)
   verifyForm.code = ''
   verifyDialogVisible.value = true
 }
@@ -377,7 +348,7 @@ const scanCode = () => {
 }
 
 // 确认核销
-const confirmVerify = () => {
+const confirmVerify = async () => {
   if (!verifyForm.code) {
     ElMessage.warning('请输入核销码')
     return
@@ -390,18 +361,33 @@ const confirmVerify = () => {
     return
   }
 
-  // 查找订单并更新状态
-  const order = orderList.value.find(o => o.orderNo === verifyForm.orderNo)
-  if (order) {
-    order.verified = true
-    ElMessage({
-      message: `核销成功！已获得佣金 ¥${order.commission.toFixed(2)}`,
-      type: 'success',
-      duration: 3000
-    })
-    verifyDialogVisible.value = false
+  try {
+    // 查找订单并更新状态为已完成
+    const order = orderList.value.find(o => o.orderNo === verifyForm.orderNo)
+    if (order) {
+      await updateOrderStatus(order.id, 'completed')
+      ElMessage({
+        message: `核销成功！已获得佣金 ¥${parseFloat(order.commissionAmount).toFixed(2)}`,
+        type: 'success',
+        duration: 3000
+      })
+      verifyDialogVisible.value = false
+      fetchOrderList()
+    }
+  } catch (err: any) {
+    ElMessage.error(err.message || '核销失败')
   }
 }
+
+// 监听分页变化
+watch([() => pagination.page, () => pagination.size], () => {
+  fetchOrderList()
+})
+
+// 初始化
+onMounted(() => {
+  fetchOrderList()
+})
 </script>
 
 <style scoped>

@@ -73,20 +73,33 @@
       </div>
 
       <!-- 订单列表 -->
-      <el-table :data="orderList" style="width: 100%; margin-top: 20px" stripe>
+      <el-table 
+        :data="orderList" 
+        v-loading="loading"
+        style="width: 100%; margin-top: 20px" 
+        stripe
+      >
         <el-table-column prop="orderNo" label="订单号" width="180" />
-        <el-table-column prop="leaderName" label="团长" width="100" />
-        <el-table-column prop="communityName" label="社区" width="120" />
-        <el-table-column prop="userName" label="下单用户" width="100" />
-        <el-table-column prop="userPhone" label="联系电话" width="120" />
-        <el-table-column prop="totalAmount" label="订单金额" width="100">
+        <el-table-column label="团长" width="100">
           <template #default="{ row }">
-            <span style="color: #67c23a">¥{{ row.totalAmount.toFixed(2) }}</span>
+            {{ row.leader?.name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="commissionAmount" label="佣金" width="100">
+        <el-table-column label="社区" width="120">
           <template #default="{ row }">
-            <span style="color: #409eff">¥{{ row.commissionAmount.toFixed(2) }}</span>
+            {{ row.community?.name || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="customerName" label="下单用户" width="100" />
+        <el-table-column prop="customerPhone" label="联系电话" width="120" />
+        <el-table-column label="订单金额" width="100">
+          <template #default="{ row }">
+            <span style="color: #67c23a">¥{{ parseFloat(row.totalAmount).toFixed(2) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="佣金" width="100">
+          <template #default="{ row }">
+            <span style="color: #409eff">¥{{ parseFloat(row.commissionAmount).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
@@ -96,7 +109,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="orderDate" label="下单时间" width="120" />
+        <el-table-column label="下单时间" width="170">
+          <template #default="{ row }">
+            {{ new Date(row.createdAt).toLocaleString() }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" fixed="right" width="150">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleView(row)">详情</el-button>
@@ -119,11 +136,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, onMounted, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getOrderList, exportDeliveryList, type Order, type OrderListParams } from '@/api/order'
 
 // 搜索表单
-const searchForm = reactive({
+const searchForm = reactive<{
+  dateRange: string[]
+  status: string
+  leaderId: string
+  keyword: string
+}>({
   dateRange: [],
   status: '',
   leaderId: '',
@@ -134,89 +157,78 @@ const searchForm = reactive({
 const pagination = reactive({
   page: 1,
   pageSize: 20,
-  total: 100
+  total: 0
 })
 
-// 订单列表数据（模拟）
-const orderList = ref([
-  {
-    id: 1,
-    orderNo: 'ORD202602240001',
-    leaderName: '张阿姨',
-    communityName: '阳光小区',
-    userName: '李大爷',
-    userPhone: '13800138001',
-    totalAmount: 125.5,
-    commissionAmount: 15.06,
-    status: 3,
-    orderDate: '2026-02-24'
-  },
-  {
-    id: 2,
-    orderNo: 'ORD202602240002',
-    leaderName: '李叔叔',
-    communityName: '幸福小区',
-    userName: '王女士',
-    userPhone: '13800138002',
-    totalAmount: 89.0,
-    commissionAmount: 8.9,
-    status: 2,
-    orderDate: '2026-02-24'
-  },
-  {
-    id: 3,
-    orderNo: 'ORD202602240003',
-    leaderName: '张阿姨',
-    communityName: '阳光小区',
-    userName: '赵先生',
-    userPhone: '13800138003',
-    totalAmount: 156.8,
-    commissionAmount: 18.82,
-    status: 1,
-    orderDate: '2026-02-24'
-  },
-  {
-    id: 4,
-    orderNo: 'ORD202602240004',
-    leaderName: '王大姐',
-    communityName: '和谐社区',
-    userName: '刘阿姨',
-    userPhone: '13800138004',
-    totalAmount: 78.5,
-    commissionAmount: 9.42,
-    status: 3,
-    orderDate: '2026-02-24'
-  },
-  {
-    id: 5,
-    orderNo: 'ORD202602230001',
-    leaderName: '张阿姨',
-    communityName: '阳光小区',
-    userName: '周大爷',
-    userPhone: '13800138005',
-    totalAmount: 198.0,
-    commissionAmount: 23.76,
-    status: 3,
-    orderDate: '2026-02-23'
+// 加载状态
+const loading = ref(false)
+
+// 订单列表数据
+const orderList = ref<Order[]>([])
+
+// 状态映射
+const STATUS_MAP = {
+  'pending': { text: '待成团', type: 'warning', value: 0 },
+  'confirmed': { text: '待配送', type: 'primary', value: 1 },
+  'delivering': { text: '配送中', type: 'success', value: 2 },
+  'pickup': { text: '待自提', type: 'info', value: 3 },
+  'completed': { text: '已完成', type: 'success', value: 4 },
+  'cancelled': { text: '已取消', type: 'danger', value: 5 }
+}
+
+const STATUS_VALUE_MAP: Record<string, string> = {
+  '': '',
+  '0': 'pending',
+  '1': 'confirmed',
+  '2': 'delivering',
+  '3': 'completed',
+  '4': 'cancelled'
+}
+
+// 获取订单列表
+const fetchOrderList = async () => {
+  try {
+    loading.value = true
+    
+    const params: OrderListParams = {
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      keyword: searchForm.keyword,
+      status: STATUS_VALUE_MAP[searchForm.status] || '',
+      leaderId: searchForm.leaderId
+    }
+
+    // 添加日期范围
+    if (searchForm.dateRange && searchForm.dateRange.length === 2) {
+      params.startDate = searchForm.dateRange[0]
+      params.endDate = searchForm.dateRange[1]
+    }
+
+    const res = await getOrderList(params)
+    orderList.value = res.data.list
+    pagination.total = res.data.total
+
+    loading.value = false
+  } catch (err: any) {
+    loading.value = false
+    ElMessage.error(err.message || '获取订单列表失败')
   }
-])
+}
 
 // 获取状态类型
-const getStatusType = (status: number) => {
-  const types = ['warning', 'primary', 'success', 'info', 'danger']
-  return types[status] || 'info'
+const getStatusType = (status: string) => {
+  return STATUS_MAP[status]?.type || 'info'
 }
 
 // 获取状态文本
-const getStatusText = (status: number) => {
-  const texts = ['待确认', '已确认', '配送中', '已完成', '已取消']
-  return texts[status] || '未知'
+const getStatusText = (status: string) => {
+  return STATUS_MAP[status]?.text || '未知'
 }
 
 // 搜索
 const handleSearch = () => {
-  ElMessage.success('查询成功')
-  // 实际项目中这里调用接口
+  pagination.page = 1
+  fetchOrderList()
 }
 
 // 重置
@@ -225,29 +237,63 @@ const handleReset = () => {
   searchForm.status = ''
   searchForm.leaderId = ''
   searchForm.keyword = ''
-  ElMessage.info('已重置')
+  pagination.page = 1
+  fetchOrderList()
 }
 
 // 导出配送清单
-const handleExport = () => {
-  ElMessage.success('配送清单导出成功')
-  // 实际项目中这里调用导出接口
+const handleExport = async () => {
+  try {
+    const { value: deliveryDate } = await ElMessageBox.prompt('请选择配送日期', '导出配送清单', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputType: 'date',
+      inputValue: new Date().toISOString().split('T')[0]
+    })
+
+    if (!deliveryDate) {
+      return
+    }
+
+    await exportDeliveryList({
+      deliveryDate: deliveryDate as string,
+      groupBy: 'leader'
+    })
+
+    ElMessage.success('配送清单导出成功')
+  } catch (err: any) {
+    if (err !== 'cancel') {
+      ElMessage.error(err.message || '导出失败')
+    }
+  }
 }
 
 // 导出订单数据
 const handleExportOrders = () => {
-  ElMessage.success('订单数据导出成功')
+  ElMessage.warning('订单数据导出功能开发中...')
 }
 
 // 查看详情
-const handleView = (row: any) => {
+const handleView = (row: Order) => {
   ElMessage.info(`查看订单: ${row.orderNo}`)
+  // TODO: 打开详情弹窗
 }
 
 // 编辑
-const handleEdit = (row: any) => {
+const handleEdit = (row: Order) => {
   ElMessage.info(`编辑订单: ${row.orderNo}`)
+  // TODO: 打开编辑弹窗
 }
+
+// 监听分页变化
+watch([() => pagination.page, () => pagination.pageSize], () => {
+  fetchOrderList()
+})
+
+// 初始化
+onMounted(() => {
+  fetchOrderList()
+})
 </script>
 
 <style scoped>
