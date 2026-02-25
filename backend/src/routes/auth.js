@@ -2,7 +2,7 @@ const express = require('express')
 const router = express.Router()
 const { body } = require('express-validator')
 const authController = require('../controllers/authController')
-const auth = require('../middleware/auth')
+const { auth } = require('../middleware/auth')
 const validate = require('../middleware/validator')
 
 // 登录

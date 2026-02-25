@@ -4,7 +4,7 @@
       <!-- 搜索栏 -->
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="团长姓名">
-          <el-input v-model="searchForm.name" placeholder="请输入姓名" clearable />
+          <el-input v-model="searchForm.keyword" placeholder="请输入姓名" clearable />
         </el-form-item>
 
         <el-form-item label="所属社区">
@@ -45,25 +45,29 @@
       </div>
 
       <!-- 团长列表 -->
-      <el-table :data="leaderList" style="width: 100%; margin-top: 20px" stripe>
+      <el-table :data="leaderList" v-loading="loading" style="width: 100%; margin-top: 20px" stripe>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="name" label="姓名" width="100" />
         <el-table-column prop="phone" label="联系电话" width="130" />
-        <el-table-column prop="communityName" label="所属社区" width="150" />
+        <el-table-column label="所属社区" width="150">
+          <template #default="{ row }">
+            {{ row.community?.name || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="commissionRate" label="佣金比例" width="100">
           <template #default="{ row }">
-            <el-tag type="success">{{ row.commissionRate }}%</el-tag>
+            <el-tag type="success">{{ parseFloat(row.commissionRate).toFixed(1) }}%</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="totalOrders" label="累计订单" width="100" sortable />
-        <el-table-column prop="totalCommission" label="累计佣金（元）" width="150" sortable>
+        <el-table-column label="累计佣金（元）" width="150" sortable>
           <template #default="{ row }">
-            <span style="color: #409eff">¥{{ row.totalCommission.toFixed(2) }}</span>
+            <span style="color: #409eff">¥{{ parseFloat(row.totalCommission || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="balance" label="账户余额（元）" width="150">
+        <el-table-column label="账户余额（元）" width="150">
           <template #default="{ row }">
-            <span style="color: #67c23a">¥{{ row.balance.toFixed(2) }}</span>
+            <span style="color: #67c23a">¥{{ parseFloat(row.balance || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
@@ -154,13 +158,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import { getLeaderList, updateLeader, type Leader } from '@/api/leader'
 
 // 搜索表单
 const searchForm = reactive({
-  name: '',
+  keyword: '',
   communityId: '',
   status: ''
 })
@@ -169,67 +174,44 @@ const searchForm = reactive({
 const pagination = reactive({
   page: 1,
   pageSize: 20,
-  total: 50
+  total: 0
 })
 
+// 加载状态
+const loading = ref(false)
+
 // 团长列表数据
-const leaderList = ref([
-  {
-    id: 1,
-    name: '张阿姨',
-    phone: '13800138001',
-    communityName: '阳光小区',
-    commissionRate: 12.0,
-    totalOrders: 256,
-    totalCommission: 28560.5,
-    balance: 5620.0,
-    status: 1
-  },
-  {
-    id: 2,
-    name: '李叔叔',
-    phone: '13800138002',
-    communityName: '幸福小区',
-    commissionRate: 10.0,
-    totalOrders: 198,
-    totalCommission: 19800.0,
-    balance: 3200.0,
-    status: 1
-  },
-  {
-    id: 3,
-    name: '王大姐',
-    phone: '13800138003',
-    communityName: '和谐社区',
-    commissionRate: 11.5,
-    totalOrders: 178,
-    totalCommission: 20470.0,
-    balance: 4150.0,
-    status: 1
-  },
-  {
-    id: 4,
-    name: '赵师傅',
-    phone: '13800138004',
-    communityName: '美好家园',
-    commissionRate: 12.5,
-    totalOrders: 145,
-    totalCommission: 18125.0,
-    balance: 2800.0,
-    status: 1
-  },
-  {
-    id: 5,
-    name: '刘阿姨',
-    phone: '13800138005',
-    communityName: '阳光小区',
-    commissionRate: 11.0,
-    totalOrders: 123,
-    totalCommission: 13530.0,
-    balance: 1890.0,
-    status: 0
+const leaderList = ref<Leader[]>([])
+
+// 获取团长列表
+const fetchLeaders = async () => {
+  try {
+    loading.value = true
+    const res = await getLeaderList({
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      keyword: searchForm.keyword,
+      communityId: searchForm.communityId,
+      status: searchForm.status
+    })
+    leaderList.value = res.data.list
+    pagination.total = res.data.total
+  } catch (error: any) {
+    ElMessage.error(error.message || '获取团长列表失败')
+  } finally {
+    loading.value = false
   }
-])
+}
+
+// 监听分页变化
+watch([() => pagination.page, () => pagination.pageSize], () => {
+  fetchLeaders()
+})
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchLeaders()
+})
 
 // 对话框
 const dialogVisible = ref(false)
@@ -237,10 +219,10 @@ const dialogTitle = ref('新增团长')
 const formRef = ref<FormInstance>()
 
 const form = reactive({
-  id: '',
+  id: 0,
   name: '',
   phone: '',
-  communityId: '',
+  communityId: null as number | null,
   commissionRate: 10.0,
   status: 1
 })
@@ -257,46 +239,60 @@ const rules: FormRules = {
 
 // 查询
 const handleSearch = () => {
-  ElMessage.success('查询成功')
+  pagination.page = 1
+  fetchLeaders()
 }
 
 // 重置
 const handleReset = () => {
-  searchForm.name = ''
+  searchForm.keyword = ''
   searchForm.communityId = ''
   searchForm.status = ''
-  ElMessage.info('已重置')
+  pagination.page = 1
+  fetchLeaders()
 }
 
 // 新增
 const handleAdd = () => {
   dialogTitle.value = '新增团长'
-  dialogVisible.value = true
+  ElMessage.info('新增团长功能开发中...')
+  // dialogVisible.value = true
 }
 
 // 查看详情
-const handleView = (row: any) => {
-  ElMessage.info(`查看团长: ${row.name}`)
+const handleView = (row: Leader) => {
+  ElMessage.info(`查看团长详情功能开发中: ${row.name}`)
 }
 
 // 编辑
-const handleEdit = (row: any) => {
+const handleEdit = (row: Leader) => {
   dialogTitle.value = '编辑团长'
-  Object.assign(form, row)
-  dialogVisible.value = true
+  ElMessage.info(`编辑团长功能开发中: ${row.name}`)
+  // Object.assign(form, row)
+  // dialogVisible.value = true
 }
 
 // 切换状态
-const handleToggleStatus = (row: any) => {
+const handleToggleStatus = async (row: Leader) => {
   const action = row.status === 1 ? '禁用' : '启用'
-  ElMessageBox.confirm(`确定要${action}团长 ${row.name} 吗?`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    row.status = row.status === 1 ? 0 : 1
+  try {
+    await ElMessageBox.confirm(`确定要${action}团长 ${row.name} 吗?`, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await updateLeader(row.id, {
+      status: row.status === 1 ? 0 : 1
+    })
+    
     ElMessage.success(`${action}成功`)
-  })
+    fetchLeaders()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || `${action}失败`)
+    }
+  }
 }
 
 // 提交表单

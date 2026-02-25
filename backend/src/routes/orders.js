@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const orderController = require('../controllers/orderController')
-const auth = require('../middleware/auth')
+const { auth } = require('../middleware/auth')
 
 // 所有订单接口都需要登录
 router.use(auth)

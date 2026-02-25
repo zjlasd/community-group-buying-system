@@ -5,7 +5,7 @@ const { error } = require('../utils/response')
 /**
  * JWT认证中间件
  */
-const auth = async (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   try {
     // 从请求头获取token
     const token = req.headers.authorization?.replace('Bearer ', '')
@@ -37,4 +37,29 @@ const auth = async (req, res, next) => {
   }
 }
 
-module.exports = auth
+/**
+ * 角色授权中间件
+ * @param {Array} roles - 允许访问的角色数组，例如 ['admin', 'leader']
+ */
+const authorizeRole = (roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json(error('未认证，请先登录', 401))
+    }
+    
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json(error('权限不足，无法访问', 403))
+    }
+    
+    next()
+  }
+}
+
+// 兼容旧的导出方式
+const auth = authenticateToken
+
+module.exports = {
+  auth,
+  authenticateToken,
+  authorizeRole
+}
