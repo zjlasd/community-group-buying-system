@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>菜单诊断工具</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>社区管理菜单诊断</h1>
+    
+    <h2>请在浏览器控制台(F12)运行以下命令:</h2>
+    
+    <div class="test">
+        <h3>1. 检查菜单元素是否存在</h3>
+        <pre>
+document.querySelectorAll('[index="/community"]').length
+// 应该返回: 1 或更多
+        </pre>
+    </div>
+    
+    <div class="test">
+        <h3>2. 检查路由是否注册</h3>
+        <pre>
+// 打开Vue DevTools
+// 查看路由列表中是否有 /community
+        </pre>
+    </div>
+    
+    <div class="test">
+        <h3>3. 手动触发路由跳转</h3>
+        <pre>
+// 在浏览器控制台执行:
+window.location.href = 'http://localhost:5173/community'
+        </pre>
+    </div>
+    
+    <div class="test">
+        <h3>4. 检查用户权限</h3>
+        <pre>
+// 在控制台执行:
+JSON.parse(localStorage.getItem('userInfo'))
+// 检查 role 字段是否为 'admin'
+        </pre>
+    </div>
+    
+    <h2>快速测试链接</h2>
+    <div>
+        <a href="http://localhost:5173/dashboard" target="_blank">数据看板</a> |
+        <a href="http://localhost:5173/order" target="_blank">订单管理</a> |
+        <a href="http://localhost:5173/product-manage" target="_blank">商品管理</a> |
+        <a href="http://localhost:5173/leader" target="_blank">团长管理</a> |
+        <a href="http://localhost:5173/community" target="_blank" style="color: red; font-weight: bold;">社区管理(测试)</a> |
+        <a href="http://localhost:5173/commission" target="_blank">佣金管理</a>
+    </div>
+    
+    <h2>可能的原因</h2>
+    <ol>
+        <li><strong>浏览器缓存</strong>: 尝试无痕模式打开 http://localhost:5173</li>
+        <li><strong>权限问题</strong>: 确保登录的是admin账号</li>
+        <li><strong>热更新失败</strong>: 重启前端服务</li>
+        <li><strong>路由守卫拦截</strong>: 检查路由守卫逻辑</li>
+    </ol>
+</body>
+</html>

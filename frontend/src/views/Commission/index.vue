@@ -103,24 +103,32 @@
       </el-form>
 
       <!-- 提现列表 -->
-      <el-table :data="withdrawalList" style="width: 100%">
+      <el-table :data="withdrawalList" v-loading="loading" style="width: 100%">
         <el-table-column prop="id" label="申请ID" width="80" />
-        <el-table-column prop="leaderName" label="团长" width="100" />
+        <el-table-column label="团长" width="100">
+          <template #default="{ row }">
+            {{ row.leader?.name || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="amount" label="提现金额（元）" width="150">
           <template #default="{ row }">
-            <span style="color: #f56c6c; font-weight: bold">¥{{ row.amount.toFixed(2) }}</span>
+            <span style="color: #f56c6c; font-weight: bold">¥{{ parseFloat(row.amount).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="accountName" label="账户名" width="100" />
         <el-table-column prop="accountNumber" label="账号" width="180" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="申请时间" width="180" />
+        <el-table-column label="申请时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.createdAt) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" fixed="right" width="200">
           <template #default="{ row }">
             <el-button
@@ -187,13 +195,17 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import type { EChartsOption } from 'echarts'
 import type { FormInstance, FormRules } from 'element-plus'
+import {
+  getCommissionStats
+} from '@/api/commission'
+import { getWithdrawalList, approveWithdrawal, rejectWithdrawal, type Withdrawal } from '@/api/withdrawal'
 
 // 统计数据
 const stats = reactive({
-  todayIncome: 156.8,
-  monthIncome: 3680.5,
-  totalIncome: 28560.5,
-  balance: 5620.0
+  todayIncome: 0,
+  monthIncome: 0,
+  totalIncome: 0,
+  balance: 0
 })
 
 // 趋势类型
@@ -208,45 +220,51 @@ const searchForm = reactive({
   status: ''
 })
 
+// 加载状态
+const loading = ref(false)
+const statsLoading = ref(false)
+
 // 提现申请列表
-const withdrawalList = ref([
-  {
-    id: 1,
-    leaderName: '张阿姨',
-    amount: 1000.0,
-    accountName: '张三',
-    accountNumber: '6222 **** **** 1234',
-    status: 0,
-    createdAt: '2026-02-24 10:30:00'
-  },
-  {
-    id: 2,
-    leaderName: '李叔叔',
-    amount: 800.0,
-    accountName: '李四',
-    accountNumber: '6222 **** **** 5678',
-    status: 1,
-    createdAt: '2026-02-23 15:20:00'
-  },
-  {
-    id: 3,
-    leaderName: '王大姐',
-    amount: 1200.0,
-    accountName: '王五',
-    accountNumber: '6222 **** **** 9012',
-    status: 1,
-    createdAt: '2026-02-22 09:15:00'
-  },
-  {
-    id: 4,
-    leaderName: '赵师傅',
-    amount: 500.0,
-    accountName: '赵六',
-    accountNumber: '6222 **** **** 3456',
-    status: 2,
-    createdAt: '2026-02-21 14:45:00'
+const withdrawalList = ref<Withdrawal[]>([])
+
+// 分页
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  total: 0
+})
+
+// 获取统计数据
+const fetchStats = async () => {
+  try {
+    statsLoading.value = true
+    const res = await getCommissionStats()
+    Object.assign(stats, res.data)
+  } catch (error: any) {
+    ElMessage.error(error.message || '获取统计数据失败')
+  } finally {
+    statsLoading.value = false
   }
-])
+}
+
+// 获取提现列表
+const fetchWithdrawals = async () => {
+  try {
+    loading.value = true
+    const res = await getWithdrawalList({
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      leaderId: searchForm.leaderId || undefined,
+      status: searchForm.status !== '' ? searchForm.status : undefined
+    })
+    withdrawalList.value = res.data.list
+    pagination.total = res.data.total
+  } catch (error: any) {
+    ElMessage.error(error.message || '获取提现列表失败')
+  } finally {
+    loading.value = false
+  }
+}
 
 // 提现对话框
 const dialogVisible = ref(false)
@@ -336,11 +354,6 @@ const getStatusText = (status: number) => {
   return texts[status] || '未知'
 }
 
-// 申请提现
-const handleWithdraw = () => {
-  dialogVisible.value = true
-}
-
 // 提交提现申请
 const handleSubmitWithdraw = async () => {
   if (!formRef.value) return
@@ -356,7 +369,8 @@ const handleSubmitWithdraw = async () => {
 
 // 查询
 const handleSearch = () => {
-  ElMessage.success('查询成功')
+  pagination.page = 1
+  fetchWithdrawals()
 }
 
 // 查看详情
@@ -365,32 +379,56 @@ const handleView = (row: any) => {
 }
 
 // 审核通过
-const handleApprove = (row: any) => {
-  ElMessageBox.confirm(`确定通过 ${row.leaderName} 的提现申请吗?`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'success'
-  }).then(() => {
-    row.status = 1
+const handleApprove = async (row: Withdrawal) => {
+  try {
+    await ElMessageBox.confirm(`确定通过 ${row.leader?.name} 的提现申请吗?`, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'success'
+    })
+    
+    await approveWithdrawal(row.id, { remark: '审核通过' })
     ElMessage.success('审核通过')
-  })
+    fetchWithdrawals()
+    fetchStats()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '操作失败')
+    }
+  }
 }
 
 // 审核拒绝
-const handleReject = (row: any) => {
-  ElMessageBox.prompt('请输入拒绝原因', '拒绝提现', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    inputPattern: /.+/,
-    inputErrorMessage: '请输入拒绝原因'
-  }).then(() => {
-    row.status = 2
+const handleReject = async (row: Withdrawal) => {
+  try {
+    const result = await ElMessageBox.prompt('请输入拒绝原因', '拒绝提现', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPattern: /.+/,
+      inputErrorMessage: '请输入拒绝原因'
+    }) as { value: string }
+    
+    await rejectWithdrawal(row.id, { remark: result.value })
     ElMessage.success('已拒绝')
-  })
+    fetchWithdrawals()
+    fetchStats()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '操作失败')
+    }
+  }
+}
+
+// 格式化日期
+const formatDate = (date: string) => {
+  if (!date) return '-'
+  return new Date(date).toLocaleString('zh-CN')
 }
 
 onMounted(() => {
   initChart()
+  fetchStats()
+  fetchWithdrawals()
 })
 </script>
 

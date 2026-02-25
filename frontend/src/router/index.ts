@@ -40,6 +40,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '团长管理', icon: 'User', roles: ['admin'] }
       },
       {
+        path: 'community',
+        name: 'Community',
+        component: () => import('@/views/Community/index.vue'),
+        meta: { title: '社区管理', icon: 'Location', roles: ['admin'] }
+      },
+      {
         path: 'commission',
         name: 'Commission',
         component: () => import('@/views/Commission/index.vue'),

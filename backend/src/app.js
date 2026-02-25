@@ -32,10 +32,11 @@ app.use('/api/auth', require('./routes/auth'))
 app.use('/api/products', require('./routes/products'))
 app.use('/api/orders', require('./routes/orders'))
 app.use('/api/leaders', require('./routes/leaders'))
-// TODO: 添加其他路由
+app.use('/api/communities', require('./routes/communities'))
+app.use('/api/commissions', require('./routes/commissions'))
+app.use('/api/withdrawals', require('./routes/withdrawals'))
+// TODO: 添加用户管理路由
 // app.use('/api/users', require('./routes/users'))
-// app.use('/api/commissions', require('./routes/commissions'))
-// app.use('/api/withdrawals', require('./routes/withdrawals'))
 
 // 404 处理
 app.use((req, res) => {
@@ -58,9 +59,9 @@ const startServer = async () => {
     
     // 同步数据库模型（开发环境）
     if (appConfig.env === 'development') {
-      // alter: true 会尝试修改表结构以匹配模型
-      // force: true 会删除并重建所有表（慎用！）
-      await db.sequelize.sync({ alter: true })
+      // 使用 alter: false 避免重复添加索引
+      // 如果需要修改表结构，请使用数据库迁移工具或手动SQL
+      await db.sequelize.sync({ alter: false })
       logger.info('数据库模型同步成功')
     }
     

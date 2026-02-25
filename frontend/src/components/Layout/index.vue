@@ -33,6 +33,10 @@
               <el-icon><User /></el-icon>
               <template #title>团长管理</template>
             </el-menu-item>
+            <el-menu-item index="/community">
+              <el-icon><Location /></el-icon>
+              <template #title>社区管理</template>
+            </el-menu-item>
             <el-menu-item index="/commission">
               <el-icon><Wallet /></el-icon>
               <template #title>佣金管理</template>
@@ -222,3 +226,4 @@ const handleLogout = () => {
   overflow-y: auto;
 }
 </style>
+
