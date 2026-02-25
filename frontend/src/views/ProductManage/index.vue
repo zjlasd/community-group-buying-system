@@ -17,7 +17,7 @@
     <el-card class="search-card">
       <el-form :inline="true" :model="searchForm">
         <el-form-item label="商品名称">
-          <el-input v-model="searchForm.name" placeholder="请输入商品名称" clearable />
+          <el-input v-model="searchForm.keyword" placeholder="请输入商品名称" clearable />
         </el-form-item>
         <el-form-item label="商品分类">
           <el-select v-model="searchForm.category" placeholder="请选择分类" clearable>
@@ -56,10 +56,10 @@
         <el-table-column label="商品图片" width="100">
           <template #default="{ row }">
             <el-image
-              :src="row.image"
+              :src="row.image_url || 'https://picsum.photos/200/200'"
               fit="cover"
               style="width: 60px; height: 60px; border-radius: 4px"
-              :preview-src-list="[row.image]"
+              :preview-src-list="[row.image_url || 'https://picsum.photos/200/200']"
             />
           </template>
         </el-table-column>
@@ -67,12 +67,12 @@
         <el-table-column prop="category" label="商品分类" width="100" />
         <el-table-column prop="price" label="销售价格" width="100">
           <template #default="{ row }">
-            <span style="color: #f56c6c; font-weight: bold">¥{{ row.price.toFixed(2) }}</span>
+            <span style="color: #f56c6c; font-weight: bold">¥{{ Number(row.price).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="commissionRate" label="佣金比例" width="100">
+        <el-table-column prop="commission_rate" label="佣金比例" width="100">
           <template #default="{ row }">
-            <el-tag type="warning">{{ (row.commissionRate * 100).toFixed(0) }}%</el-tag>
+            <el-tag type="warning">{{ Number(row.commission_rate).toFixed(0) }}%</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="stock" label="库存" width="80">
@@ -123,6 +123,8 @@
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
         style="margin-top: 20px; justify-content: flex-end"
+        @current-change="fetchProducts"
+        @size-change="fetchProducts"
       />
     </el-card>
 
@@ -146,8 +148,8 @@
             <el-option label="粮油" value="粮油" />
           </el-select>
         </el-form-item>
-        <el-form-item label="商品图片" prop="image">
-          <el-input v-model="formData.image" placeholder="请输入图片URL">
+        <el-form-item label="商品图片" prop="image_url">
+          <el-input v-model="formData.image_url" placeholder="请输入图片URL">
             <template #append>
               <el-button @click="useDefaultImage">使用默认</el-button>
             </template>
@@ -163,9 +165,9 @@
             placeholder="请输入价格"
           />
         </el-form-item>
-        <el-form-item label="佣金比例" prop="commissionRate">
+        <el-form-item label="佣金比例" prop="commission_rate">
           <el-slider
-            v-model="formData.commissionRate"
+            v-model="formData.commission_rate"
             :min="5"
             :max="30"
             :step="1"
@@ -173,7 +175,7 @@
             :format-tooltip="(val: number) => val + '%'"
           />
           <div style="margin-top: 8px; font-size: 12px; color: #909399">
-            团长每售出一件商品可获得：¥{{ (formData.price * formData.commissionRate / 100).toFixed(2) }} 佣金
+            团长每售出一件商品可获得：¥{{ (formData.price * formData.commission_rate / 100).toFixed(2) }} 佣金
           </div>
         </el-form-item>
         <el-form-item label="库存数量" prop="stock">
@@ -211,15 +213,15 @@
       <el-descriptions :column="2" border v-if="currentProduct">
         <el-descriptions-item label="商品名称">{{ currentProduct.name }}</el-descriptions-item>
         <el-descriptions-item label="商品分类">{{ currentProduct.category }}</el-descriptions-item>
-        <el-descriptions-item label="销售价格">¥{{ currentProduct.price.toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="佣金比例">{{ (currentProduct.commissionRate * 100).toFixed(0) }}%</el-descriptions-item>
+        <el-descriptions-item label="销售价格">¥{{ Number(currentProduct.price).toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item label="佣金比例">{{ Number(currentProduct.commission_rate).toFixed(0) }}%</el-descriptions-item>
         <el-descriptions-item label="当前库存">{{ currentProduct.stock }}</el-descriptions-item>
         <el-descriptions-item label="累计销量">{{ currentProduct.sales }}</el-descriptions-item>
         <el-descriptions-item label="累计销售额">
-          ¥{{ (currentProduct.price * currentProduct.sales).toFixed(2) }}
+          ¥{{ (Number(currentProduct.price) * currentProduct.sales).toFixed(2) }}
         </el-descriptions-item>
         <el-descriptions-item label="累计佣金支出">
-          ¥{{ (currentProduct.price * currentProduct.sales * currentProduct.commissionRate).toFixed(2) }}
+          ¥{{ (Number(currentProduct.price) * currentProduct.sales * Number(currentProduct.commission_rate) / 100).toFixed(2) }}
         </el-descriptions-item>
       </el-descriptions>
 
@@ -239,9 +241,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import * as productApi from '@/api/product'
 
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -251,7 +254,7 @@ const formRef = ref<FormInstance>()
 const currentProduct = ref<any>(null)
 
 const searchForm = reactive({
-  name: '',
+  keyword: '',
   category: '',
   status: ''
 })
@@ -259,16 +262,16 @@ const searchForm = reactive({
 const pagination = reactive({
   page: 1,
   size: 10,
-  total: 10
+  total: 0
 })
 
 const formData = reactive({
   id: 0,
   name: '',
   category: '',
-  image: '',
+  image_url: '',
   price: 0,
-  commissionRate: 12,
+  commission_rate: 12,
   stock: 100,
   description: '',
   status: 1
@@ -277,135 +280,14 @@ const formData = reactive({
 const rules: FormRules = {
   name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
   category: [{ required: true, message: '请选择商品分类', trigger: 'change' }],
-  image: [{ required: true, message: '请输入商品图片URL', trigger: 'blur' }],
+  image_url: [{ required: true, message: '请输入商品图片URL', trigger: 'blur' }],
   price: [{ required: true, message: '请输入销售价格', trigger: 'blur' }],
-  commissionRate: [{ required: true, message: '请设置佣金比例', trigger: 'blur' }],
+  commission_rate: [{ required: true, message: '请设置佣金比例', trigger: 'blur' }],
   stock: [{ required: true, message: '请输入库存数量', trigger: 'blur' }]
 }
 
-// 模拟商品数据
-const productList = ref([
-  {
-    id: 1,
-    name: '新鲜草莓',
-    category: '水果',
-    image: 'https://picsum.photos/200/200?random=1',
-    price: 29.9,
-    commissionRate: 0.12,
-    stock: 150,
-    sales: 286,
-    status: 1,
-    description: '新鲜采摘，香甜可口'
-  },
-  {
-    id: 2,
-    name: '有机蔬菜包',
-    category: '蔬菜',
-    image: 'https://picsum.photos/200/200?random=2',
-    price: 49.9,
-    commissionRate: 0.15,
-    stock: 80,
-    sales: 198,
-    status: 1,
-    description: '5种时令蔬菜组合'
-  },
-  {
-    id: 3,
-    name: '进口车厘子',
-    category: '水果',
-    image: 'https://picsum.photos/200/200?random=3',
-    price: 89.0,
-    commissionRate: 0.10,
-    stock: 45,
-    sales: 156,
-    status: 1,
-    description: '智利进口，颗粒饱满'
-  },
-  {
-    id: 4,
-    name: '鲜牛奶',
-    category: '乳制品',
-    image: 'https://picsum.photos/200/200?random=4',
-    price: 48.8,
-    commissionRate: 0.12,
-    stock: 200,
-    sales: 342,
-    status: 1,
-    description: '每日新鲜配送'
-  },
-  {
-    id: 5,
-    name: '土鸡蛋',
-    category: '肉蛋禽',
-    image: 'https://picsum.photos/200/200?random=5',
-    price: 32.9,
-    commissionRate: 0.15,
-    stock: 120,
-    sales: 267,
-    status: 1,
-    description: '散养土鸡蛋30枚装'
-  },
-  {
-    id: 6,
-    name: '新鲜蓝莓',
-    category: '水果',
-    image: 'https://picsum.photos/200/200?random=6',
-    price: 45.0,
-    commissionRate: 0.12,
-    stock: 60,
-    sales: 134,
-    status: 1,
-    description: '进口蓝莓，果实饱满'
-  },
-  {
-    id: 7,
-    name: '五常大米',
-    category: '粮油',
-    image: 'https://picsum.photos/200/200?random=7',
-    price: 68.0,
-    commissionRate: 0.10,
-    stock: 90,
-    sales: 89,
-    status: 1,
-    description: '东北五常大米5kg装'
-  },
-  {
-    id: 8,
-    name: '新鲜猕猴桃',
-    category: '水果',
-    image: 'https://picsum.photos/200/200?random=8',
-    price: 36.9,
-    commissionRate: 0.12,
-    stock: 85,
-    sales: 176,
-    status: 1,
-    description: '陕西猕猴桃，酸甜适中'
-  },
-  {
-    id: 9,
-    name: '有机西红柿',
-    category: '蔬菜',
-    image: 'https://picsum.photos/200/200?random=9',
-    price: 28.5,
-    commissionRate: 0.15,
-    stock: 30,
-    sales: 145,
-    status: 0,
-    description: '有机种植，无农药残留'
-  },
-  {
-    id: 10,
-    name: '精品牛肉',
-    category: '肉蛋禽',
-    image: 'https://picsum.photos/200/200?random=10',
-    price: 118.0,
-    commissionRate: 0.08,
-    stock: 25,
-    sales: 67,
-    status: 0,
-    description: '精选牛肉，口感鲜嫩'
-  }
-])
+// 商品列表
+const productList = ref<any[]>([])
 
 // 模拟销售记录
 const mockSalesData = ref([
@@ -416,16 +298,33 @@ const mockSalesData = ref([
   { date: '2024-02-20', quantity: 20, amount: 598.0, commission: 71.76 }
 ])
 
-const handleSearch = () => {
+// 获取商品列表
+const fetchProducts = async () => {
   loading.value = true
-  setTimeout(() => {
-    ElMessage.success('搜索完成')
+  try {
+    const res = await productApi.getProducts({
+      page: pagination.page,
+      pageSize: pagination.size,
+      keyword: searchForm.keyword,
+      category: searchForm.category,
+      status: searchForm.status
+    })
+    productList.value = res.data.list
+    pagination.total = res.data.total
+  } catch (error: any) {
+    ElMessage.error(error.message || '获取商品列表失败')
+  } finally {
     loading.value = false
-  }, 500)
+  }
+}
+
+const handleSearch = () => {
+  pagination.page = 1
+  fetchProducts()
 }
 
 const handleReset = () => {
-  searchForm.name = ''
+  searchForm.keyword = ''
   searchForm.category = ''
   searchForm.status = ''
   handleSearch()
@@ -437,9 +336,9 @@ const handleAdd = () => {
     id: 0,
     name: '',
     category: '',
-    image: '',
+    image_url: '',
     price: 0,
-    commissionRate: 12,
+    commission_rate: 12,
     stock: 100,
     description: '',
     status: 1
@@ -450,40 +349,51 @@ const handleAdd = () => {
 const handleEdit = (row: any) => {
   dialogTitle.value = '编辑商品'
   Object.assign(formData, {
-    ...row,
-    commissionRate: row.commissionRate * 100
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    image_url: row.image_url,
+    price: Number(row.price),
+    commission_rate: Number(row.commission_rate),
+    stock: Number(row.stock),
+    description: row.description,
+    status: row.status
   })
   dialogVisible.value = true
 }
 
 const handleSubmit = async () => {
   if (!formRef.value) return
-  await formRef.value.validate((valid) => {
+  await formRef.value.validate(async (valid) => {
     if (valid) {
-      const isEdit = formData.id > 0
-      if (isEdit) {
-        // 更新商品
-        const product = productList.value.find(p => p.id === formData.id)
-        if (product) {
-          Object.assign(product, {
-            ...formData,
-            commissionRate: formData.commissionRate / 100
-          })
+      try {
+        const isEdit = formData.id > 0
+        const submitData = {
+          name: formData.name,
+          category: formData.category,
+          image_url: formData.image_url,
+          price: formData.price,
+          commission_rate: formData.commission_rate,
+          stock: formData.stock,
+          description: formData.description
         }
-        ElMessage.success('商品更新成功')
-      } else {
-        // 添加商品
-        const newProduct = {
-          ...formData,
-          id: productList.value.length + 1,
-          sales: 0,
-          commissionRate: formData.commissionRate / 100
+
+        if (isEdit) {
+          await productApi.updateProduct(formData.id, submitData)
+          ElMessage.success('商品更新成功')
+        } else {
+          await productApi.createProduct({
+            ...submitData,
+            status: formData.status
+          } as any)
+          ElMessage.success('商品添加成功')
         }
-        productList.value.push(newProduct)
-        pagination.total++
-        ElMessage.success('商品添加成功')
+
+        dialogVisible.value = false
+        fetchProducts()
+      } catch (error: any) {
+        ElMessage.error(error.message || '操作失败')
       }
-      dialogVisible.value = false
     }
   })
 }
@@ -495,9 +405,15 @@ const handleToggleStatus = (row: any) => {
     cancelButtonText: '取消',
     type: 'warning'
   })
-    .then(() => {
-      row.status = row.status === 1 ? 0 : 1
-      ElMessage.success(`${action}成功`)
+    .then(async () => {
+      try {
+        const newStatus = row.status === 1 ? 0 : 1
+        await productApi.updateProductStatus(row.id, newStatus)
+        ElMessage.success(`${action}成功`)
+        fetchProducts()
+      } catch (error: any) {
+        ElMessage.error(error.message || `${action}失败`)
+      }
     })
     .catch(() => {
       ElMessage.info('已取消')
@@ -510,12 +426,13 @@ const handleDelete = (row: any) => {
     cancelButtonText: '取消',
     type: 'error'
   })
-    .then(() => {
-      const index = productList.value.findIndex(p => p.id === row.id)
-      if (index > -1) {
-        productList.value.splice(index, 1)
-        pagination.total--
+    .then(async () => {
+      try {
+        await productApi.deleteProduct(row.id)
         ElMessage.success('删除成功')
+        fetchProducts()
+      } catch (error: any) {
+        ElMessage.error(error.message || '删除失败')
       }
     })
     .catch(() => {
@@ -529,9 +446,14 @@ const handleViewStats = (row: any) => {
 }
 
 const useDefaultImage = () => {
-  formData.image = `https://picsum.photos/200/200?random=${Date.now()}`
+  formData.image_url = `https://picsum.photos/200/200?random=${Date.now()}`
   ElMessage.success('已设置默认图片')
 }
+
+// 页面加载时获取商品列表
+onMounted(() => {
+  fetchProducts()
+})
 </script>
 
 <style scoped>

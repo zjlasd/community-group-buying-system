@@ -29,10 +29,10 @@ app.get('/health', (req, res) => {
 
 // API 路由
 app.use('/api/auth', require('./routes/auth'))
+app.use('/api/products', require('./routes/products'))
 // TODO: 添加其他路由
 // app.use('/api/users', require('./routes/users'))
 // app.use('/api/leaders', require('./routes/leaders'))
-// app.use('/api/products', require('./routes/products'))
 // app.use('/api/orders', require('./routes/orders'))
 // app.use('/api/commissions', require('./routes/commissions'))
 // app.use('/api/withdrawals', require('./routes/withdrawals'))

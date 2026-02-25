@@ -57,15 +57,21 @@
             </el-form-item>
 
             <el-form-item>
-              <el-button type="primary" size="large" style="width: 100%" @click="handleLogin">
+              <el-button 
+                type="primary" 
+                size="large" 
+                style="width: 100%" 
+                @click="handleLogin"
+                :loading="loading"
+              >
                 登录
               </el-button>
             </el-form-item>
           </el-form>
 
           <div class="tips">
-            <p>测试账号：admin / 123456</p>
-            <p>团长账号：leader / 123456</p>
+            <p>管理员账号：admin / admin123</p>
+            <p>团长账号：leader1 / leader123</p>
           </div>
         </div>
       </div>
@@ -79,14 +85,16 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import * as authApi from '@/api/auth'
 
 const router = useRouter()
 const userStore = useUserStore()
 const formRef = ref<FormInstance>()
+const loading = ref(false)
 
 const loginForm = reactive({
   username: 'admin',
-  password: '123456'
+  password: 'admin123'
 })
 
 const rules: FormRules = {
@@ -94,55 +102,47 @@ const rules: FormRules = {
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
 
-// 模拟用户数据
-const mockUsers = {
-  admin: {
-    id: 1,
-    username: 'admin',
-    nickname: '系统管理员',
-    role: 'admin' as const,
-    password: '123456'
-  },
-  leader: {
-    id: 2,
-    username: 'leader',
-    nickname: '张阿姨',
-    role: 'leader' as const,
-    password: '123456',
-    leaderId: 1,
-    commissionRate: 0.12
-  }
-}
-
 const handleLogin = async () => {
   if (!formRef.value) return
 
-  await formRef.value.validate((valid) => {
+  await formRef.value.validate(async (valid) => {
     if (valid) {
-      // 模拟登录验证
-      const user = mockUsers[loginForm.username as keyof typeof mockUsers]
-      
-      if (!user) {
-        ElMessage.error('用户名不存在')
-        return
-      }
-      
-      if (user.password !== loginForm.password) {
-        ElMessage.error('密码错误')
-        return
-      }
+      loading.value = true
+      try {
+        // 调用真实的登录 API
+        const res = await authApi.login({
+          username: loginForm.username,
+          password: loginForm.password
+        })
 
-      // 登录成功,保存用户信息
-      const { password, ...userInfo } = user
-      userStore.login(userInfo, 'mock-token-' + Date.now())
-      
-      ElMessage.success(`欢迎${userInfo.nickname}`)
-      
-      // 根据角色跳转不同页面
-      if (userInfo.role === 'admin') {
-        router.push('/dashboard')
-      } else {
-        router.push('/leader-center')
+        // 登录成功，保存 token 和用户信息
+        const { token, userInfo } = res.data
+        
+        // 转换后端返回的用户信息格式
+        const user = {
+          id: userInfo.id,
+          username: userInfo.username,
+          nickname: userInfo.realName || userInfo.username,
+          role: userInfo.role as 'admin' | 'leader',
+          avatar: userInfo.avatar
+        }
+
+        userStore.login(user, token)
+        
+        ElMessage.success(`欢迎${user.nickname}`)
+        
+        // 根据角色跳转不同页面
+        if (user.role === 'admin') {
+          router.push('/dashboard')
+        } else {
+          router.push('/leader-center')
+        }
+      } catch (error) {
+        console.error('登录失败:', error)
+        const err = error as { response?: { data?: { message?: string } }; message?: string }
+        ElMessage.error(err.response?.data?.message || err.message || '登录失败')
+      } finally {
+        loading.value = false
       }
     }
   })
