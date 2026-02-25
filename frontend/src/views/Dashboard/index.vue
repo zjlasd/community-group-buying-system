@@ -105,15 +105,17 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import type { EChartsOption } from 'echarts'
+import { getAdminDashboard } from '@/api/dashboard'
 
 // 统计数据
 const stats = reactive({
-  todayOrders: 128,
-  todaySales: 15680.5,
-  pendingWithdrawals: 12,
-  activeLeaders: 48
+  todayOrders: 0,
+  todaySales: 0,
+  pendingWithdrawals: 0,
+  activeLeaders: 0
 })
 
 // 趋势类型
@@ -123,37 +125,43 @@ const trendType = ref('week')
 const orderChartRef = ref<HTMLDivElement>()
 const salesChartRef = ref<HTMLDivElement>()
 
-// 模拟订单趋势数据
-const getOrderTrendData = (type: string) => {
-  if (type === 'week') {
-    return {
-      dates: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-      orders: [85, 92, 78, 105, 112, 95, 128],
-      sales: [8500, 9200, 7800, 10500, 11200, 9500, 12800]
-    }
-  } else {
-    const dates = Array.from({ length: 30 }, (_, i) => `${i + 1}日`)
-    const orders = Array.from({ length: 30 }, () => Math.floor(Math.random() * 50) + 70)
-    const sales = orders.map((v) => v * 100 + Math.random() * 2000)
-    return { dates, orders, sales }
-  }
-}
+// 趋势数据
+const trendsData = ref({
+  week: { dates: [], orders: [], sales: [] },
+  month: { dates: [], orders: [], sales: [] }
+})
 
 // 团长排行数据
-const leaderRanking = ref([
-  { name: '张阿姨', community: '阳光小区', orders: 156, sales: 18500, commission: 2220 },
-  { name: '李叔叔', community: '幸福小区', orders: 142, sales: 16800, commission: 1680 },
-  { name: '王大姐', community: '和谐社区', orders: 128, sales: 15200, commission: 1824 },
-  { name: '赵师傅', community: '美好家园', orders: 115, sales: 13800, commission: 1518 },
-  { name: '刘阿姨', community: '阳光小区', orders: 98, sales: 11200, commission: 1344 }
-])
+const leaderRanking = ref<any[]>([])
+
+// 加载看板数据
+const loadDashboardData = async () => {
+  try {
+    const res = await getAdminDashboard()
+    
+    // 更新统计数据
+    Object.assign(stats, res.data.stats)
+    
+    // 更新趋势数据
+    trendsData.value = res.data.trends
+    
+    // 更新团长排行
+    leaderRanking.value = res.data.leaderRanking
+    
+    // 初始化图表
+    initOrderChart()
+    initSalesChart()
+  } catch (error: any) {
+    ElMessage.error(error.message || '加载看板数据失败')
+  }
+}
 
 // 初始化订单趋势图表
 const initOrderChart = () => {
   if (!orderChartRef.value) return
 
   const chart = echarts.init(orderChartRef.value)
-  const data = getOrderTrendData(trendType.value)
+  const data = trendsData.value[trendType.value as 'week' | 'month']
 
   const option: EChartsOption = {
     tooltip: {
@@ -275,8 +283,7 @@ watch(trendType, () => {
 })
 
 onMounted(() => {
-  initOrderChart()
-  initSalesChart()
+  loadDashboardData()
 })
 </script>
 

@@ -22,7 +22,8 @@ const authenticateToken = async (req, res, next) => {
       id: decoded.id || decoded.userId,  // 兼容id和userId字段
       userId: decoded.userId || decoded.id,
       username: decoded.username,
-      role: decoded.role
+      role: decoded.role,
+      leaderId: decoded.leaderId  // 团长ID
     }
     
     next()

@@ -29,12 +29,14 @@ app.get('/health', (req, res) => {
 
 // API 路由
 app.use('/api/auth', require('./routes/auth'))
+app.use('/api/dashboard', require('./routes/dashboard'))
 app.use('/api/products', require('./routes/products'))
 app.use('/api/orders', require('./routes/orders'))
 app.use('/api/leaders', require('./routes/leaders'))
 app.use('/api/communities', require('./routes/communities'))
 app.use('/api/commissions', require('./routes/commissions'))
 app.use('/api/withdrawals', require('./routes/withdrawals'))
+app.use('/api/customers', require('./routes/customers'))
 // TODO: 添加用户管理路由
 // app.use('/api/users', require('./routes/users'))
 

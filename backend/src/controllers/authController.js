@@ -32,12 +32,19 @@ const login = async (req, res, next) => {
     }
     
     // 生成 JWT token
+    const tokenPayload = {
+      id: user.id,
+      username: user.username,
+      role: user.role
+    }
+    
+    // 如果是团长，将leaderId加入token
+    if (user.role === 'leader' && user.leaderInfo) {
+      tokenPayload.leaderId = user.leaderInfo.id
+    }
+    
     const token = jwt.sign(
-      {
-        id: user.id,
-        username: user.username,
-        role: user.role
-      },
+      tokenPayload,
       jwtConfig.secret,
       { expiresIn: jwtConfig.expiresIn }
     )
