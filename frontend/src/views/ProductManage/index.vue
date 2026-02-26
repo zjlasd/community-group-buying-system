@@ -216,24 +216,25 @@
         <el-descriptions-item label="销售价格">¥{{ Number(currentProduct.price).toFixed(2) }}</el-descriptions-item>
         <el-descriptions-item label="佣金比例">{{ Number(currentProduct.commission_rate).toFixed(0) }}%</el-descriptions-item>
         <el-descriptions-item label="当前库存">{{ currentProduct.stock }}</el-descriptions-item>
-        <el-descriptions-item label="累计销量">{{ currentProduct.sales }}</el-descriptions-item>
+        <el-descriptions-item label="累计销量">{{ salesStats?.totalStats.totalQuantity || 0 }}</el-descriptions-item>
         <el-descriptions-item label="累计销售额">
-          ¥{{ (Number(currentProduct.price) * currentProduct.sales).toFixed(2) }}
+          ¥{{ salesStats?.totalStats.totalAmount || '0.00' }}
         </el-descriptions-item>
         <el-descriptions-item label="累计佣金支出">
-          ¥{{ (Number(currentProduct.price) * currentProduct.sales * Number(currentProduct.commission_rate) / 100).toFixed(2) }}
+          ¥{{ salesStats?.totalStats.totalCommission || '0.00' }}
         </el-descriptions-item>
       </el-descriptions>
 
-      <el-divider>最近销售记录（模拟数据）</el-divider>
-      <el-table :data="mockSalesData" style="width: 100%">
+      <el-divider>最近销售记录</el-divider>
+      <el-empty v-if="!salesStats || salesStats.recentSales.length === 0" description="暂无销售记录" />
+      <el-table v-else :data="salesStats.recentSales" style="width: 100%">
         <el-table-column prop="date" label="日期" width="120" />
         <el-table-column prop="quantity" label="销量" width="80" />
         <el-table-column prop="amount" label="销售额" width="100">
-          <template #default="{ row }">¥{{ row.amount.toFixed(2) }}</template>
+          <template #default="{ row }">¥{{ Number(row.amount).toFixed(2) }}</template>
         </el-table-column>
         <el-table-column prop="commission" label="佣金支出" width="100">
-          <template #default="{ row }">¥{{ row.commission.toFixed(2) }}</template>
+          <template #default="{ row }">¥{{ Number(row.commission).toFixed(2) }}</template>
         </el-table-column>
       </el-table>
     </el-dialog>
@@ -245,6 +246,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import * as productApi from '@/api/product'
+import type { ProductSalesStats } from '@/api/product'
 
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -252,6 +254,7 @@ const statsDialogVisible = ref(false)
 const dialogTitle = ref('添加商品')
 const formRef = ref<FormInstance>()
 const currentProduct = ref<any>(null)
+const salesStats = ref<ProductSalesStats | null>(null)
 
 const searchForm = reactive({
   keyword: '',
@@ -288,15 +291,6 @@ const rules: FormRules = {
 
 // 商品列表
 const productList = ref<any[]>([])
-
-// 模拟销售记录
-const mockSalesData = ref([
-  { date: '2024-02-24', quantity: 15, amount: 448.5, commission: 53.82 },
-  { date: '2024-02-23', quantity: 22, amount: 657.8, commission: 78.94 },
-  { date: '2024-02-22', quantity: 18, amount: 538.2, commission: 64.58 },
-  { date: '2024-02-21', quantity: 12, amount: 358.8, commission: 43.06 },
-  { date: '2024-02-20', quantity: 20, amount: 598.0, commission: 71.76 }
-])
 
 // 获取商品列表
 const fetchProducts = async () => {
@@ -440,9 +434,18 @@ const handleDelete = (row: any) => {
     })
 }
 
-const handleViewStats = (row: any) => {
+// 查看商品销售统计
+const handleViewStats = async (row: any) => {
   currentProduct.value = row
+  salesStats.value = null
   statsDialogVisible.value = true
+  
+  try {
+    const res = await productApi.getProductSales(row.id, { limit: 30 })
+    salesStats.value = res.data
+  } catch (error: any) {
+    ElMessage.error(error.message || '获取销售统计失败')
+  }
 }
 
 const useDefaultImage = () => {

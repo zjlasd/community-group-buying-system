@@ -267,3 +267,77 @@ exports.getCategories = async (req, res, next) => {
     next(err)
   }
 }
+
+// 获取商品销售统计
+exports.getProductSales = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { limit = 30 } = req.query
+
+    const { OrderItem, Order } = require('../models')
+
+    // 查询商品是否存在
+    const product = await Product.findByPk(id)
+    if (!product) {
+      return res.status(404).json(error('商品不存在', 404))
+    }
+
+    // 按天统计销售数据（最近N天）
+    const salesData = await OrderItem.findAll({
+      attributes: [
+        [require('sequelize').fn('DATE', require('sequelize').col('Order.created_at')), 'date'],
+        [require('sequelize').fn('SUM', require('sequelize').col('OrderItem.quantity')), 'quantity'],
+        [require('sequelize').fn('SUM', require('sequelize').col('OrderItem.subtotal')), 'amount']
+      ],
+      include: [{
+        model: Order,
+        as: 'order',
+        attributes: [],
+        where: {
+          status: {
+            [Op.in]: ['confirmed', 'delivering', 'pickup', 'completed']
+          }
+        }
+      }],
+      where: {
+        productId: id
+      },
+      group: [require('sequelize').fn('DATE', require('sequelize').col('Order.created_at'))],
+      order: [[require('sequelize').fn('DATE', require('sequelize').col('Order.created_at')), 'DESC']],
+      limit: parseInt(limit),
+      raw: true
+    })
+
+    // 计算佣金
+    const salesWithCommission = salesData.map(item => ({
+      date: item.date,
+      quantity: parseInt(item.quantity) || 0,
+      amount: parseFloat(item.amount) || 0,
+      commission: (parseFloat(item.amount) * parseFloat(product.commission_rate) / 100).toFixed(2)
+    }))
+
+    // 累计统计
+    const totalStats = {
+      totalQuantity: product.sales || 0,
+      totalAmount: (parseFloat(product.price) * (product.sales || 0)).toFixed(2),
+      totalCommission: (parseFloat(product.price) * (product.sales || 0) * parseFloat(product.commission_rate) / 100).toFixed(2)
+    }
+
+    res.json(success({
+      product: {
+        id: product.id,
+        name: product.name,
+        category: product.category,
+        price: product.price,
+        commission_rate: product.commission_rate,
+        stock: product.stock,
+        sales: product.sales
+      },
+      totalStats,
+      recentSales: salesWithCommission
+    }, '查询成功'))
+  } catch (err) {
+    logger.error('查询商品销售统计失败:', err)
+    next(err)
+  }
+}

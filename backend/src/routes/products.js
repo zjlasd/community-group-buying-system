@@ -13,6 +13,9 @@ router.get('/meta/categories', productController.getCategories)
 // 获取商品列表（所有角色）
 router.get('/', productController.getProducts)
 
+// 获取商品销售统计（所有角色）- 必须放在 /:id 之前
+router.get('/:id/sales', productController.getProductSales)
+
 // 获取商品详情（所有角色）
 router.get('/:id', productController.getProduct)
 

@@ -96,3 +96,36 @@ export const getCategories = () => {
     method: 'get'
   })
 }
+
+// 获取商品销售统计
+export const getProductSales = (id: number, params?: { limit?: number }) => {
+  return request({
+    url: `/products/${id}/sales`,
+    method: 'get',
+    params
+  })
+}
+
+// 商品销售统计数据类型
+export interface ProductSalesStats {
+  product: {
+    id: number
+    name: string
+    category: string
+    price: number
+    commission_rate: number
+    stock: number
+    sales: number
+  }
+  totalStats: {
+    totalQuantity: number
+    totalAmount: string
+    totalCommission: string
+  }
+  recentSales: Array<{
+    date: string
+    quantity: number
+    amount: number
+    commission: string
+  }>
+}
