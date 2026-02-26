@@ -283,11 +283,16 @@ exports.getProductSales = async (req, res, next) => {
     }
 
     // 按天统计销售数据（最近N天）
+    // 注意: 这里统计的佣金是基于订单实际结算的佣金(团长佣金比例),而非商品的建议佣金比例
     const salesData = await OrderItem.findAll({
       attributes: [
         [require('sequelize').fn('DATE', require('sequelize').col('Order.created_at')), 'date'],
         [require('sequelize').fn('SUM', require('sequelize').col('OrderItem.quantity')), 'quantity'],
-        [require('sequelize').fn('SUM', require('sequelize').col('OrderItem.subtotal')), 'amount']
+        [require('sequelize').fn('SUM', require('sequelize').col('OrderItem.subtotal')), 'amount'],
+        // 计算该商品在各订单中的佣金占比: (商品小计 / 订单总额) * 订单佣金
+        [require('sequelize').literal(
+          'SUM(OrderItem.subtotal / NULLIF(Order.total_amount, 0) * Order.commission_amount)'
+        ), 'commission']
       ],
       include: [{
         model: Order,
@@ -308,12 +313,12 @@ exports.getProductSales = async (req, res, next) => {
       raw: true
     })
 
-    // 计算佣金
+    // 格式化数据
     const salesWithCommission = salesData.map(item => ({
       date: item.date,
       quantity: parseInt(item.quantity) || 0,
       amount: parseFloat(item.amount) || 0,
-      commission: (parseFloat(item.amount) * parseFloat(product.commissionRate) / 100).toFixed(2)
+      commission: parseFloat(item.commission || 0).toFixed(2)
     }))
 
     // 计算累计统计(从实际订单数据汇总)

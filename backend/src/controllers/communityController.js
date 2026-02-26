@@ -44,13 +44,24 @@ exports.getCommunities = async (req, res) => {
         as: 'leaders',
         attributes: ['id', 'name', 'phone', 'status']
       }],
+      distinct: true,  // 修复: 使用 distinct 确保只统计社区数量，不受关联表影响
       order: [['created_at', 'DESC']],
       limit: parseInt(pageSize),
       offset: offset
     })
 
+    // 格式化返回数据，确保前端能正确读取字段
+    const list = rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      address: row.address,
+      district: row.district,
+      createdAt: row.created_at,  // 将 created_at 映射为 createdAt
+      leaders: row.leaders || []
+    }))
+
     res.json(success({
-      list: rows,
+      list,
       total: count,
       page: parseInt(page),
       pageSize: parseInt(pageSize)

@@ -328,6 +328,14 @@ const leaderStats = ref<LeaderStats | null>(null)
 const chartRef = ref<HTMLElement>()
 let chartInstance: echarts.ECharts | null = null
 
+// 监听详情对话框关闭，销毁图表实例
+watch(detailDialogVisible, (newVal) => {
+  if (!newVal && chartInstance) {
+    chartInstance.dispose()
+    chartInstance = null
+  }
+})
+
 // 查询
 const handleSearch = () => {
   pagination.page = 1
@@ -483,9 +491,14 @@ const handleDialogClose = () => {
 const renderChart = () => {
   if (!chartRef.value || !leaderStats.value) return
 
-  if (!chartInstance) {
-    chartInstance = echarts.init(chartRef.value)
+  // 销毁旧的图表实例（如果存在）
+  if (chartInstance) {
+    chartInstance.dispose()
+    chartInstance = null
   }
+
+  // 创建新的图表实例
+  chartInstance = echarts.init(chartRef.value)
 
   const dates = leaderStats.value.recentOrders.map(item => item.date)
   const counts = leaderStats.value.recentOrders.map(item => item.count)
@@ -557,5 +570,33 @@ const renderChart = () => {
 
 .toolbar {
   margin-bottom: 10px;
+}
+
+/* 修复 el-select 下拉箭头样式 */
+:deep(.el-select) {
+  width: 180px;
+}
+
+:deep(.el-select .el-input__wrapper) {
+  box-shadow: 0 0 0 1px #dcdfe6 inset;
+}
+
+:deep(.el-select .el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #c0c4cc inset;
+}
+
+:deep(.el-select .el-input.is-focus .el-input__wrapper) {
+  box-shadow: 0 0 0 1px #409eff inset;
+}
+
+/* 确保下拉箭头正常显示 */
+:deep(.el-select .el-input__suffix) {
+  display: flex;
+  align-items: center;
+}
+
+:deep(.el-select .el-icon) {
+  font-size: 14px;
+  color: #a8abb2;
 }
 </style>

@@ -4,7 +4,7 @@
       <div class="header-content">
         <div>
           <h2 style="margin: 0 0 8px 0; color: white;">商品管理</h2>
-          <span style="color: rgba(255, 255, 255, 0.9); font-size: 14px">管理商品信息、设置佣金比例、控制上下架状态</span>
+          <span style="color: rgba(255, 255, 255, 0.9); font-size: 14px">管理商品信息、设置建议佣金比例、控制上下架状态</span>
         </div>
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>
@@ -70,7 +70,7 @@
             <span style="color: #f56c6c; font-weight: bold">¥{{ Number(row.price).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="commissionRate" label="佣金比例" width="100">
+        <el-table-column prop="commissionRate" label="建议佣金比例" width="120">
           <template #default="{ row }">
             <el-tag type="warning">{{ Number(row.commissionRate).toFixed(0) }}%</el-tag>
           </template>
@@ -165,7 +165,7 @@
             placeholder="请输入价格"
           />
         </el-form-item>
-        <el-form-item label="佣金比例" prop="commissionRate">
+        <el-form-item label="建议佣金比例" prop="commissionRate">
           <el-slider
             v-model="formData.commissionRate"
             :min="5"
@@ -175,7 +175,7 @@
             :format-tooltip="(val: number) => val + '%'"
           />
           <div style="margin-top: 8px; font-size: 12px; color: #909399">
-            团长每售出一件商品可获得：¥{{ (formData.price * formData.commissionRate / 100).toFixed(2) }} 佣金
+            参考佣金：¥{{ (formData.price * formData.commissionRate / 100).toFixed(2) }}（实际以团长佣金比例为准）
           </div>
         </el-form-item>
         <el-form-item label="库存数量" prop="stock">
@@ -214,7 +214,15 @@
         <el-descriptions-item label="商品名称">{{ currentProduct.name }}</el-descriptions-item>
         <el-descriptions-item label="商品分类">{{ currentProduct.category }}</el-descriptions-item>
         <el-descriptions-item label="销售价格">¥{{ Number(currentProduct.price).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="佣金比例">{{ Number(currentProduct.commissionRate).toFixed(0) }}%</el-descriptions-item>
+        <el-descriptions-item label="建议佣金比例">{{ Number(currentProduct.commissionRate).toFixed(0) }}%</el-descriptions-item>
+        <el-descriptions-item label="实际佣金比例">
+          <el-tag type="success">
+            {{ calculateActualCommissionRate() }}%
+          </el-tag>
+          <span style="color: #909399; font-size: 12px; margin-left: 8px">
+            （实际结算平均值）
+          </span>
+        </el-descriptions-item>
         <el-descriptions-item label="当前库存">{{ currentProduct.stock }}</el-descriptions-item>
         <el-descriptions-item label="累计销量">{{ salesStats?.totalStats.totalQuantity || 0 }}</el-descriptions-item>
         <el-descriptions-item label="累计销售额">
@@ -285,7 +293,7 @@ const rules: FormRules = {
   category: [{ required: true, message: '请选择商品分类', trigger: 'change' }],
   imageUrl: [{ required: true, message: '请输入商品图片URL', trigger: 'blur' }],
   price: [{ required: true, message: '请输入销售价格', trigger: 'blur' }],
-  commissionRate: [{ required: true, message: '请设置佣金比例', trigger: 'blur' }],
+  commissionRate: [{ required: true, message: '请设置建议佣金比例', trigger: 'blur' }],
   stock: [{ required: true, message: '请输入库存数量', trigger: 'blur' }]
 }
 
@@ -464,6 +472,24 @@ const handleViewStats = async (row: any) => {
   } catch (error: any) {
     ElMessage.error(error.message || '获取销售统计失败')
   }
+}
+
+// 计算实际佣金比例
+const calculateActualCommissionRate = () => {
+  if (!salesStats.value || !salesStats.value.totalStats) {
+    return '0.0'
+  }
+  
+  const totalAmount = parseFloat(salesStats.value.totalStats.totalAmount || '0')
+  const totalCommission = parseFloat(salesStats.value.totalStats.totalCommission || '0')
+  
+  if (totalAmount === 0) {
+    return '0.0'
+  }
+  
+  // 实际佣金比例 = 总佣金 / 总销售额 * 100
+  const actualRate = (totalCommission / totalAmount * 100).toFixed(1)
+  return actualRate
 }
 
 const useDefaultImage = () => {

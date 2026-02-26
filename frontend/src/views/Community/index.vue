@@ -209,7 +209,11 @@ const fetchCommunities = async () => {
       keyword: searchForm.keyword,
       district: searchForm.district
     })
-    communityList.value = res.data.list
+    // 处理团长数量
+    communityList.value = res.data.list.map((item: any) => ({
+      ...item,
+      leaderCount: item.leaders ? item.leaders.length : 0
+    }))
     pagination.total = res.data.total
   } catch (error: any) {
     ElMessage.error(error.message || '获取社区列表失败')

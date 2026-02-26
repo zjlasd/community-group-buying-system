@@ -24,6 +24,7 @@ module.exports = (sequelize) => {
     tableName: 'communities',
     timestamps: true,
     underscored: true,
+    createdAt: 'created_at',  // 映射到数据库的 created_at 字段
     updatedAt: false
   })
   
