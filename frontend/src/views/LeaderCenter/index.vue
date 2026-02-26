@@ -13,7 +13,7 @@
               </el-tag>
             </div>
             <div style="font-size: 14px; color: #909399; margin-top: 4px">
-              佣金加成: <span style="color: #67c23a; font-weight: bold">+{{ (userStore.userInfo?.bonusRate || 0).toFixed(0) }}%</span>
+              佣金加成: <span style="color: #67c23a; font-weight: bold">+{{ Number(userStore.userInfo?.bonusRate || 0).toFixed(0) }}%</span>
             </div>
           </div>
         </div>
@@ -33,7 +33,7 @@
           <div class="stat-content">
             <div class="stat-info">
               <div class="stat-title">今日收益</div>
-              <div class="stat-value">¥{{ (stats.todayIncome || 0).toFixed(2) }}</div>
+              <div class="stat-value">¥{{ Number(stats.todayIncome || 0).toFixed(2) }}</div>
             </div>
             <el-icon class="stat-icon" color="#67c23a"><Money /></el-icon>
           </div>
@@ -45,7 +45,7 @@
           <div class="stat-content">
             <div class="stat-info">
               <div class="stat-title">本月收益</div>
-              <div class="stat-value">¥{{ (stats.monthIncome || 0).toFixed(2) }}</div>
+              <div class="stat-value">¥{{ Number(stats.monthIncome || 0).toFixed(2) }}</div>
             </div>
             <el-icon class="stat-icon" color="#409eff"><TrendCharts /></el-icon>
           </div>
@@ -57,7 +57,7 @@
           <div class="stat-content">
             <div class="stat-info">
               <div class="stat-title">累计收益</div>
-              <div class="stat-value">¥{{ (stats.totalIncome || 0).toFixed(2) }}</div>
+              <div class="stat-value">¥{{ Number(stats.totalIncome || 0).toFixed(2) }}</div>
             </div>
             <el-icon class="stat-icon" color="#e6a23c"><Wallet /></el-icon>
           </div>
@@ -69,7 +69,7 @@
           <div class="stat-content">
             <div class="stat-info">
               <div class="stat-title">可提现余额</div>
-              <div class="stat-value">¥{{ (stats.balance || 0).toFixed(2) }}</div>
+              <div class="stat-value">¥{{ Number(stats.balance || 0).toFixed(2) }}</div>
             </div>
             <el-icon class="stat-icon" color="#fff"><CreditCard /></el-icon>
           </div>
@@ -117,7 +117,7 @@
             </div>
             <div class="performance-item">
               <span class="label">佣金比例</span>
-              <span class="value">{{ ((stats.commissionRate || 0) * 100).toFixed(0) }}%</span>
+              <span class="value">{{ Number((stats.commissionRate || 0) * 100).toFixed(0) }}%</span>
             </div>
             <div class="performance-item">
               <span class="label">服务社区</span>
@@ -147,12 +147,12 @@
         <el-table-column prop="customerName" label="客户姓名" width="120" />
         <el-table-column prop="amount" label="订单金额" width="120">
           <template #default="{ row }">
-            <span class="amount">¥{{ (row.amount || 0).toFixed(2) }}</span>
+            <span class="amount">¥{{ Number(row.amount || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="commission" label="佣金" width="120">
           <template #default="{ row }">
-            <span class="commission">¥{{ (row.commission || 0).toFixed(2) }}</span>
+            <span class="commission">¥{{ Number(row.commission || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
@@ -170,7 +170,7 @@
     <el-dialog v-model="withdrawDialogVisible" title="申请提现" width="500px">
       <el-form :model="withdrawForm" :rules="withdrawRules" ref="withdrawFormRef" label-width="100px">
         <el-form-item label="可提现余额">
-          <span class="balance-text">¥{{ (stats.balance || 0).toFixed(2) }}</span>
+          <span class="balance-text">¥{{ Number(stats.balance || 0).toFixed(2) }}</span>
         </el-form-item>
         <el-form-item label="提现金额" prop="amount">
           <el-input

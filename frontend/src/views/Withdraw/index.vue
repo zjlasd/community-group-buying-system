@@ -5,19 +5,19 @@
       <div class="balance-info">
         <div class="balance-item">
           <div class="label">账户余额</div>
-          <div class="value balance">¥{{ stats.balance.toFixed(2) }}</div>
+          <div class="value balance">¥{{ Number(stats.balance || 0).toFixed(2) }}</div>
         </div>
         <div class="balance-item">
           <div class="label">可提现金额</div>
-          <div class="value available">¥{{ stats.available.toFixed(2) }}</div>
+          <div class="value available">¥{{ Number(stats.available || 0).toFixed(2) }}</div>
         </div>
         <div class="balance-item">
           <div class="label">提现中</div>
-          <div class="value pending">¥{{ stats.pending.toFixed(2) }}</div>
+          <div class="value pending">¥{{ Number(stats.pending || 0).toFixed(2) }}</div>
         </div>
         <div class="balance-item">
           <div class="label">累计提现</div>
-          <div class="value total">¥{{ stats.total.toFixed(2) }}</div>
+          <div class="value total">¥{{ Number(stats.total || 0).toFixed(2) }}</div>
         </div>
       </div>
       <el-button type="primary" size="large" @click="showWithdrawDialog" style="margin-top: 20px">
@@ -38,10 +38,9 @@
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="提现状态">
           <el-select v-model="searchForm.status" placeholder="全部状态" clearable style="width: 150px">
-            <el-option label="待审核" :value="0" />
-            <el-option label="已通过" :value="1" />
-            <el-option label="已拒绝" :value="2" />
-            <el-option label="已打款" :value="3" />
+            <el-option label="待审核" value="pending" />
+            <el-option label="已通过" value="approved" />
+            <el-option label="已拒绝" value="rejected" />
           </el-select>
         </el-form-item>
         <el-form-item label="时间范围">
@@ -121,7 +120,7 @@
     <el-dialog v-model="withdrawDialogVisible" title="申请提现" width="500px">
       <el-form :model="withdrawForm" :rules="withdrawRules" ref="withdrawFormRef" label-width="100px">
         <el-form-item label="可提现金额">
-          <el-input :value="`¥${stats.available.toFixed(2)}`" disabled />
+          <el-input :value="`¥${Number(stats.available || 0).toFixed(2)}`" disabled />
         </el-form-item>
         <el-form-item label="提现金额" prop="amount">
           <el-input
@@ -234,7 +233,7 @@ const stats = reactive({
 })
 
 const searchForm = reactive({
-  status: undefined as number | undefined,
+  status: undefined as string | undefined,
   dateRange: [] as any[]
 })
 
@@ -317,14 +316,22 @@ const fetchWithdrawals = async () => {
   }
 }
 
-const getStatusText = (status: number) => {
-  const texts = ['待审核', '已通过', '已拒绝']
-  return texts[status] || '未知'
+const getStatusText = (status: string) => {
+  const statusMap: Record<string, string> = {
+    'pending': '待审核',
+    'approved': '已通过',
+    'rejected': '已拒绝'
+  }
+  return statusMap[status] || '未知'
 }
 
-const getStatusType = (status: number) => {
-  const types = ['warning', 'success', 'danger']
-  return types[status] as any || 'info'
+const getStatusType = (status: string) => {
+  const typeMap: Record<string, string> = {
+    'pending': 'warning',
+    'approved': 'success',
+    'rejected': 'danger'
+  }
+  return typeMap[status] as any || 'info'
 }
 
 const handleSearch = () => {

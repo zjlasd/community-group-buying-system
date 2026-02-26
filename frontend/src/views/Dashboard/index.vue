@@ -19,7 +19,7 @@
           <div class="stat-content">
             <div class="stat-info">
               <div class="stat-title">今日销售额</div>
-              <div class="stat-value">¥{{ stats.todaySales.toFixed(2) }}</div>
+              <div class="stat-value">¥{{ Number(stats.todaySales || 0).toFixed(2) }}</div>
             </div>
             <el-icon class="stat-icon" color="#67c23a"><Money /></el-icon>
           </div>
@@ -90,12 +90,12 @@
         <el-table-column prop="orders" label="订单数" sortable width="120" />
         <el-table-column prop="sales" label="销售额（元）" sortable width="150">
           <template #default="{ row }">
-            <span style="color: #67c23a">¥{{ row.sales.toFixed(2) }}</span>
+            <span style="color: #67c23a">¥{{ Number(row.sales || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="commission" label="佣金收入（元）" sortable>
           <template #default="{ row }">
-            <span style="color: #409eff">¥{{ row.commission.toFixed(2) }}</span>
+            <span style="color: #409eff">¥{{ Number(row.commission || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
       </el-table>

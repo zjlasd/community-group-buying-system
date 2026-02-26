@@ -7,7 +7,7 @@
           <div class="stat-content">
             <div class="stat-info">
               <div class="stat-title">今日佣金支出</div>
-              <div class="stat-value">¥{{ stats.todayIncome.toFixed(2) }}</div>
+              <div class="stat-value">¥{{ Number(stats.todayIncome || 0).toFixed(2) }}</div>
             </div>
             <el-icon class="stat-icon" color="#67c23a"><TrendCharts /></el-icon>
           </div>
@@ -19,7 +19,7 @@
           <div class="stat-content">
             <div class="stat-info">
               <div class="stat-title">本月佣金支出</div>
-              <div class="stat-value">¥{{ stats.monthIncome.toFixed(2) }}</div>
+              <div class="stat-value">¥{{ Number(stats.monthIncome || 0).toFixed(2) }}</div>
             </div>
             <el-icon class="stat-icon" color="#409eff"><Money /></el-icon>
           </div>
@@ -31,7 +31,7 @@
           <div class="stat-content">
             <div class="stat-info">
               <div class="stat-title">累计佣金支出</div>
-              <div class="stat-value">¥{{ stats.totalIncome.toFixed(2) }}</div>
+              <div class="stat-value">¥{{ Number(stats.totalIncome || 0).toFixed(2) }}</div>
             </div>
             <el-icon class="stat-icon" color="#f56c6c"><WalletFilled /></el-icon>
           </div>
@@ -43,7 +43,7 @@
           <div class="stat-content">
             <div class="stat-info">
               <div class="stat-title">待审核提现</div>
-              <div class="stat-value balance">¥{{ stats.balance.toFixed(2) }}</div>
+              <div class="stat-value balance">¥{{ Number(stats.balance || 0).toFixed(2) }}</div>
               <div style="margin-top: 8px; font-size: 12px; opacity: 0.9">
                 团长待审核的提现金额
               </div>

@@ -114,31 +114,43 @@ exports.getWithdrawalStats = async (req, res) => {
 
     // 构建查询条件
     const where = {}
+    let leader = null
 
     // 团长筛选
     if (req.user.role === 'leader') {
-      const leader = await db.Leader.findOne({ where: { userId: req.user.id } })
+      leader = await db.Leader.findOne({ where: { userId: req.user.id } })
       if (!leader) {
         return res.json(error('团长信息不存在', 404))
       }
       where.leaderId = leader.id
     } else if (leaderId) {
       where.leaderId = leaderId
+      leader = await db.Leader.findByPk(leaderId)
     }
 
-    // 按状态统计
-    const stats = await db.Withdrawal.findAll({
-      where,
-      attributes: [
-        'status',
-        [db.sequelize.fn('COUNT', db.sequelize.col('id')), 'count'],
-        [db.sequelize.fn('SUM', db.sequelize.col('amount')), 'totalAmount']
-      ],
-      group: ['status']
+    // 账户余额（从团长表获取）
+    const balance = leader ? parseFloat(leader.balance) || 0 : 0
+
+    // 提现中金额（status='pending'待审核）
+    const pendingResult = await db.Withdrawal.sum('amount', {
+      where: { ...where, status: 'pending' }
     })
+    const pending = parseFloat(pendingResult) || 0
+
+    // 累计提现（status='approved'已通过）
+    const totalResult = await db.Withdrawal.sum('amount', {
+      where: { ...where, status: 'approved' }
+    })
+    const total = parseFloat(totalResult) || 0
+
+    // 可提现金额 = 账户余额 - 提现中金额
+    const available = balance - pending
 
     res.json(success({
-      statusStats: stats
+      balance: balance,
+      available: available >= 0 ? available : 0,
+      pending: pending,
+      total: total
     }))
   } catch (err) {
     console.error('获取提现统计失败:', err)

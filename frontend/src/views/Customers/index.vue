@@ -77,7 +77,7 @@
         </el-table-column>
         <el-table-column prop="totalAmount" label="消费总额" width="120">
           <template #default="{ row }">
-            <span style="color: #67c23a; font-weight: bold">¥{{ row.totalAmount.toFixed(2) }}</span>
+            <span style="color: #67c23a; font-weight: bold">¥{{ Number(row.totalAmount || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="lastOrderTime" label="最近下单" width="180" />
@@ -157,7 +157,7 @@
         </el-descriptions-item>
         <el-descriptions-item label="订单数量">{{ currentCustomer.orderCount }}</el-descriptions-item>
         <el-descriptions-item label="消费总额">
-          ¥{{ currentCustomer.totalAmount.toFixed(2) }}
+          ¥{{ Number(currentCustomer.totalAmount || 0).toFixed(2) }}
         </el-descriptions-item>
         <el-descriptions-item label="最近下单">{{ currentCustomer.lastOrderTime }}</el-descriptions-item>
         <el-descriptions-item label="详细地址" :span="2">
@@ -172,7 +172,7 @@
       <el-table :data="currentCustomer?.orders" style="width: 100%">
         <el-table-column prop="orderNo" label="订单号" width="180" />
         <el-table-column prop="amount" label="订单金额" width="120">
-          <template #default="{ row }">¥{{ row.amount.toFixed(2) }}</template>
+          <template #default="{ row }">¥{{ Number(row.amount || 0).toFixed(2) }}</template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">

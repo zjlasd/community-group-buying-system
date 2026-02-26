@@ -56,7 +56,7 @@
         <el-table-column prop="category" label="分类" width="100" />
         <el-table-column prop="price" label="售价" width="120">
           <template #default="{ row }">
-            <span class="price">¥{{ row.price.toFixed(2) }}</span>
+            <span class="price">¥{{ Number(row.price).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="您的佣金" width="180">
@@ -65,15 +65,15 @@
               <!-- 实际佣金 -->
               <div style="display: flex; align-items: center; gap: 8px">
                 <span style="font-weight: bold; color: #e6a23c; font-size: 16px">
-                  ¥{{ calculateActualCommission(row).toFixed(2) }}
+                  ¥{{ Number(calculateActualCommission(row) || 0).toFixed(2) }}
                 </span>
-                <el-tag v-if="userStore.userInfo?.bonusRate && userStore.userInfo.bonusRate > 0" type="success" size="small">
-                  +{{ userStore.userInfo.bonusRate.toFixed(0) }}%
+                <el-tag v-if="userStore.userInfo?.bonusRate && Number(userStore.userInfo.bonusRate) > 0" type="success" size="small">
+                  +{{ Number(userStore.userInfo.bonusRate).toFixed(0) }}%
                 </el-tag>
               </div>
               <!-- 基础佣金 -->
               <span style="font-size: 12px; color: #909399">
-                基础: ¥{{ (row.commissionAmount || 0).toFixed(2) }}
+                基础: ¥{{ (Number(row.commissionAmount) || 0).toFixed(2) }}
               </span>
             </div>
           </template>
@@ -136,53 +136,139 @@
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="售价">
-          ¥{{ currentProduct.price.toFixed(2) }}
+          ¥{{ Number(currentProduct.price).toFixed(2) }}
         </el-descriptions-item>
         <el-descriptions-item label="库存">{{ currentProduct.stock }}</el-descriptions-item>
-        <el-descriptions-item label="佣金比例">
-          {{ (currentProduct.commissionRate * 100).toFixed(0) }}%
+        <el-descriptions-item label="商品基础佣金">
+          ¥{{ Number(currentProduct.commissionAmount || 0).toFixed(2) }}
         </el-descriptions-item>
-        <el-descriptions-item label="预估佣金">
+        <el-descriptions-item label="您的佣金">
           <span class="commission">
-            ¥{{ (currentProduct.price * currentProduct.commissionRate).toFixed(2) }}
+            ¥{{ Number(calculateActualCommission(currentProduct) || 0).toFixed(2) }}
+            <el-tag v-if="userStore.userInfo?.bonusRate && userStore.userInfo.bonusRate > 0" type="success" size="small" style="margin-left: 8px">
+              +{{ Number(userStore.userInfo.bonusRate).toFixed(0) }}% 加成
+            </el-tag>
           </span>
         </el-descriptions-item>
         <el-descriptions-item label="商品描述" :span="2">
           {{ currentProduct.description }}
         </el-descriptions-item>
       </el-descriptions>
-      
-      <el-divider>推广信息</el-divider>
-      <div class="share-info">
-        <div class="share-item">
-          <span class="label">推广链接：</span>
+      <template #footer>
+        <el-button @click="detailDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="handleShareFromDetail">立即推广</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 推广分享对话框 -->
+    <el-dialog v-model="shareDialogVisible" title="推广商品" width="600px">
+      <div v-if="currentProduct" class="share-content">
+        <!-- 团长ID缺失警告 -->
+        <el-alert
+          v-if="!userStore.userInfo?.leaderId"
+          type="error"
+          :closable="false"
+          style="margin: 20px 0"
+          title="⚠️ 推广链接缺少团长信息"
+        >
+          <div style="line-height: 1.8">
+            <p>推广链接中缺少团长ID，无法追踪订单来源和计算佣金。</p>
+            <p style="margin-top: 8px">
+              <strong>解决方法：</strong>请点击右上角退出登录，然后重新登录。
+            </p>
+          </div>
+        </el-alert>
+
+        <!-- 商品预览卡片 -->
+        <el-card class="product-preview" shadow="never">
+          <div class="preview-header">
+            <el-image 
+              :src="currentProduct.imageUrl" 
+              fit="cover"
+              style="width: 80px; height: 80px; border-radius: 8px"
+            >
+              <template #error>
+                <div class="image-slot">
+                  <el-icon><icon-picture /></el-icon>
+                </div>
+              </template>
+            </el-image>
+            <div class="preview-info">
+              <div class="product-name">{{ currentProduct.name }}</div>
+              <div class="product-price">¥{{ Number(currentProduct.price).toFixed(2) }}</div>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 佣金信息 -->
+        <el-alert
+          type="success"
+          :closable="false"
+          style="margin: 20px 0"
+        >
+          <template #title>
+            <div style="display: flex; align-items: center; justify-content: space-between">
+              <span>推广此商品可获得佣金</span>
+              <span style="font-size: 24px; font-weight: bold; color: #67c23a">
+                ¥{{ Number(calculateActualCommission(currentProduct) || 0).toFixed(2) }}
+              </span>
+            </div>
+            <div style="font-size: 12px; color: #909399; margin-top: 8px">
+              基础佣金 ¥{{ Number(currentProduct.commissionAmount || 0).toFixed(2) }}
+              <el-tag 
+                v-if="userStore.userInfo?.bonusRate && userStore.userInfo.bonusRate > 0" 
+                type="success" 
+                size="small" 
+                style="margin-left: 8px"
+              >
+                +{{ Number(userStore.userInfo.bonusRate).toFixed(0) }}% 等级加成
+              </el-tag>
+            </div>
+          </template>
+        </el-alert>
+
+        <!-- 推广链接 -->
+        <div class="share-link-box">
+          <div class="link-label">推广链接</div>
           <el-input
             v-model="shareLink"
             readonly
-            style="width: 400px"
           >
             <template #append>
-              <el-button @click="copyLink">复制</el-button>
+              <el-button @click="copyLink" type="primary">复制链接</el-button>
             </template>
           </el-input>
+          <!-- 调试信息 -->
+          <div style="margin-top: 8px; font-size: 12px; color: #909399">
+            <span>团长ID: {{ userStore.userInfo?.leaderId || '未找到' }}</span>
+            <span style="margin-left: 16px">商品ID: {{ currentProduct.id }}</span>
+          </div>
         </div>
+
+        <!-- 推广提示 -->
         <div class="share-tips">
-          <el-icon><InfoFilled /></el-icon>
-          将此链接分享给客户，客户通过该链接下单后，您将获得{{ (currentProduct.commissionRate * 100).toFixed(0) }}%的佣金
+          <el-icon color="#409EFF"><InfoFilled /></el-icon>
+          <span>将此链接分享给客户，客户通过该链接下单后，佣金将自动计入您的账户</span>
         </div>
       </div>
+      <template #footer>
+        <el-button @click="shareDialogVisible = false">关闭</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Search, Refresh, View, Share, InfoFilled, Picture as IconPicture } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { getProducts } from '@/api/product'
 
 const userStore = useUserStore()
 const loading = ref(false)
 const detailDialogVisible = ref(false)
+const shareDialogVisible = ref(false)
 const currentProduct = ref<any>(null)
 
 const searchForm = reactive({
@@ -197,136 +283,82 @@ const pagination = reactive({
 })
 
 // 模拟商品数据
-const productList = ref([
-  {
-    id: 1,
-    name: '新鲜草莓',
-    category: '水果',
-    price: 29.9,
-    commissionRate: 0.12,
-    stock: 150,
-    status: 1,
-    description: '新鲜采摘，香甜多汁，单果重量15-20g'
-  },
-  {
-    id: 2,
-    name: '进口车厘子',
-    category: '水果',
-    price: 89.0,
-    commissionRate: 0.15,
-    stock: 80,
-    status: 1,
-    description: '智利进口，J级大果，色泽鲜艳，口感脆甜'
-  },
-  {
-    id: 3,
-    name: '有机蔬菜包',
-    category: '蔬菜',
-    price: 49.9,
-    commissionRate: 0.10,
-    stock: 200,
-    status: 1,
-    description: '5种时令蔬菜组合，无农药残留，新鲜配送'
-  },
-  {
-    id: 4,
-    name: '新鲜蓝莓',
-    category: '水果',
-    price: 45.0,
-    commissionRate: 0.12,
-    stock: 120,
-    status: 1,
-    description: '云南高原蓝莓，果肉饱满，酸甜适中'
-  },
-  {
-    id: 5,
-    name: '土鸡蛋',
-    category: '肉禽蛋',
-    price: 32.9,
-    commissionRate: 0.10,
-    stock: 300,
-    status: 1,
-    description: '农家散养土鸡蛋，30枚装，蛋黄金黄营养丰富'
-  },
-  {
-    id: 6,
-    name: '鲜牛奶',
-    category: '乳制品',
-    price: 48.8,
-    commissionRate: 0.08,
-    stock: 250,
-    status: 1,
-    description: '本地牧场直供，全程冷链，1L×6盒装'
-  },
-  {
-    id: 7,
-    name: '有机西兰花',
-    category: '蔬菜',
-    price: 18.8,
-    commissionRate: 0.10,
-    stock: 180,
-    status: 1,
-    description: '有机种植，花球紧实，营养价值高'
-  },
-  {
-    id: 8,
-    name: '三文鱼刺身',
-    category: '肉禽蛋',
-    price: 128.0,
-    commissionRate: 0.15,
-    stock: 50,
-    status: 1,
-    description: '挪威进口三文鱼，新鲜切片，500g装'
-  },
-  {
-    id: 9,
-    name: '红心火龙果',
-    category: '水果',
-    price: 36.8,
-    commissionRate: 0.12,
-    stock: 160,
-    status: 1,
-    description: '海南红心火龙果，果肉细腻，甜度高'
-  },
-  {
-    id: 10,
-    name: '酸奶',
-    category: '乳制品',
-    price: 38.8,
-    commissionRate: 0.08,
-    stock: 220,
-    status: 1,
-    description: '原味酸奶，益生菌发酵，12杯装'
-  }
-])
+const productList = ref<any[]>([])
 
 // 生成推广链接
 const shareLink = computed(() => {
   if (!currentProduct.value) return ''
-  const leaderId = userStore.userInfo?.leaderId || 1
-  return `https://shop.example.com/product/${currentProduct.value.id}?leader=${leaderId}`
+  // 获取团长ID（优先从leaderInfo.id获取，兼容旧版从leaderId获取）
+  const leaderId = userStore.userInfo?.leaderInfo?.id || userStore.userInfo?.leaderId || ''
+  if (!leaderId) {
+    console.warn('未找到团长ID，推广链接可能无法正确追踪')
+  }
+  // 生成包含团长ID和商品ID的推广链接
+  // 实际项目中应该是C端小程序或H5的地址
+  const baseUrl = import.meta.env.VITE_APP_SHOP_URL || 'https://shop.example.com'
+  return `${baseUrl}/product/${currentProduct.value.id}?leader=${leaderId}&from=share`
 })
 
 // 计算团长实际佣金: 基础佣金 × (1 + 加成比例 / 100)
-const calculateActualCommission = (product: any) => {
-  const baseCommission = product.commissionAmount || 0
-  const bonusRate = userStore.userInfo?.bonusRate || 0
-  return baseCommission * (1 + bonusRate / 100)
+const calculateActualCommission = (product: any): number => {
+  // 更严格的参数校验
+  if (!product || typeof product !== 'object') {
+    console.warn('calculateActualCommission: 无效的product参数', product)
+    return 0
+  }
+  
+  try {
+    const baseCommission = Number(product.commissionAmount) || 0
+    const bonusRate = Number(userStore.userInfo?.bonusRate) || 0
+    const result = baseCommission * (1 + bonusRate / 100)
+    
+    // 确保返回的是有效数字
+    if (isNaN(result) || !isFinite(result)) {
+      console.warn('calculateActualCommission: 计算结果无效', { baseCommission, bonusRate, result })
+      return 0
+    }
+    
+    return result
+  } catch (error) {
+    console.error('calculateActualCommission: 计算异常', error)
+    return 0
+  }
+}
+
+// 获取商品列表
+const fetchProductList = async () => {
+  loading.value = true
+  try {
+    const res = await getProducts({
+      status: '1', // 只显示在售商品
+      keyword: searchForm.keyword,
+      category: searchForm.category,
+      page: 1,
+      pageSize: 100
+    })
+    productList.value = res.data.list || []
+  } catch (err) {
+    ElMessage.error('获取商品列表失败')
+    console.error('获取商品失败:', err)
+  } finally {
+    loading.value = false
+  }
 }
 
 const handleSearch = () => {
-  loading.value = true
-  setTimeout(() => {
-    loading.value = false
-    ElMessage.success('搜索完成')
-  }, 500)
+  fetchProductList()
 }
 
 const handleReset = () => {
   searchForm.category = ''
   searchForm.keyword = ''
-  handleSearch()
+  fetchProductList()
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchProductList()
+})
 
 const viewDetail = (row: any) => {
   currentProduct.value = row
@@ -335,13 +367,36 @@ const viewDetail = (row: any) => {
 
 const shareProduct = (row: any) => {
   currentProduct.value = row
-  detailDialogVisible.value = true
+  
+  // 检查团长ID
+  const leaderId = userStore.userInfo?.leaderId
+  if (!leaderId) {
+    console.warn('=== 推广链接调试信息 ===')
+    console.warn('⚠️ 未找到团长ID，推广链接无法正确追踪')
+    console.warn('用户信息:', userStore.userInfo)
+    console.warn('localStorage:', localStorage.getItem('userInfo'))
+    console.warn('解决方法: 请退出并重新登录')
+    
+    ElMessage.warning({
+      message: '推广链接缺少团长信息，请退出并重新登录',
+      duration: 5000,
+      showClose: true
+    })
+  }
+  
+  shareDialogVisible.value = true
 }
 
 const copyLink = () => {
   navigator.clipboard.writeText(shareLink.value).then(() => {
     ElMessage.success('推广链接已复制到剪贴板')
   })
+}
+
+// 从详情页跳转到推广页
+const handleShareFromDetail = () => {
+  detailDialogVisible.value = false
+  shareDialogVisible.value = true
 }
 </script>
 
@@ -398,5 +453,59 @@ const copyLink = () => {
   border-radius: 4px;
   color: #606266;
   font-size: 14px;
+}
+
+/* 推广分享弹窗样式 */
+.share-content {
+  padding: 10px 0;
+}
+
+.product-preview {
+  margin-bottom: 20px;
+}
+
+.preview-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.preview-info {
+  flex: 1;
+}
+
+.product-name {
+  font-size: 16px;
+  font-weight: bold;
+  color: #303133;
+  margin-bottom: 8px;
+}
+
+.product-price {
+  font-size: 20px;
+  font-weight: bold;
+  color: #f56c6c;
+}
+
+.share-link-box {
+  margin: 20px 0;
+}
+
+.link-label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #303133;
+  margin-bottom: 8px;
+}
+
+.image-slot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  background-color: #f5f7fa;
+  color: #909399;
+  font-size: 30px;
 }
 </style>
