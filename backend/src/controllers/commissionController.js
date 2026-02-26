@@ -50,15 +50,15 @@ exports.getCommissions = async (req, res) => {
 
     // 日期范围筛选
     if (startDate && endDate) {
-      where.createdAt = {
+      where.created_at = {
         [Op.between]: [new Date(startDate), new Date(endDate)]
       }
     } else if (startDate) {
-      where.createdAt = {
+      where.created_at = {
         [Op.gte]: new Date(startDate)
       }
     } else if (endDate) {
-      where.createdAt = {
+      where.created_at = {
         [Op.lte]: new Date(endDate)
       }
     }
@@ -107,7 +107,7 @@ exports.getCommissionStats = async (req, res) => {
     const { leaderId, startDate, endDate } = req.query
 
     // 构建查询条件
-    const where = {}
+    const where = { status: 'settled' }
 
     // 团长筛选
     if (req.user.role === 'leader') {
@@ -122,36 +122,99 @@ exports.getCommissionStats = async (req, res) => {
 
     // 日期范围
     if (startDate && endDate) {
-      where.createdAt = {
+      where.created_at = {
         [Op.between]: [new Date(startDate), new Date(endDate)]
       }
     }
 
-    // 统计数据
-    const stats = await db.Commission.findAll({
-      where,
-      attributes: [
-        'status',
-        [db.sequelize.fn('COUNT', db.sequelize.col('id')), 'count'],
-        [db.sequelize.fn('SUM', db.sequelize.col('amount')), 'totalAmount']
-      ],
-      group: ['status']
-    })
+    // 今日佣金支出(已结算)
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const todayEnd = new Date()
+    todayEnd.setHours(23, 59, 59, 999)
 
-    // 类型统计
-    const typeStats = await db.Commission.findAll({
-      where,
-      attributes: [
-        'type',
-        [db.sequelize.fn('COUNT', db.sequelize.col('id')), 'count'],
-        [db.sequelize.fn('SUM', db.sequelize.col('amount')), 'totalAmount']
-      ],
-      group: ['type']
-    })
+    const todayCommissions = await db.sequelize.query(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM commissions 
+       WHERE status = 'settled' AND created_at BETWEEN ? AND ?`,
+      {
+        replacements: [todayStart, todayEnd],
+        type: db.sequelize.QueryTypes.SELECT
+      }
+    )
+
+    // 本月佣金支出
+    const monthStart = new Date()
+    monthStart.setDate(1)
+    monthStart.setHours(0, 0, 0, 0)
+
+    const monthCommissions = await db.sequelize.query(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM commissions 
+       WHERE status = 'settled' AND created_at >= ?`,
+      {
+        replacements: [monthStart],
+        type: db.sequelize.QueryTypes.SELECT
+      }
+    )
+
+    // 累计佣金支出
+    const totalCommissions = await db.sequelize.query(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM commissions 
+       WHERE status = 'settled'`,
+      {
+        type: db.sequelize.QueryTypes.SELECT
+      }
+    )
+
+    // 待审核提现金额
+    const pendingWithdrawals = await db.sequelize.query(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM withdrawals 
+       WHERE status = 'pending'`,
+      {
+        type: db.sequelize.QueryTypes.SELECT
+      }
+    )
+
+    // 近30天每日佣金趋势
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    thirtyDaysAgo.setHours(0, 0, 0, 0)
+
+    const trendData = await db.sequelize.query(
+      `SELECT DATE(created_at) as date, SUM(amount) as amount, COUNT(id) as count 
+       FROM commissions 
+       WHERE status = 'settled' AND created_at >= ?
+       GROUP BY DATE(created_at) 
+       ORDER BY DATE(created_at) ASC`,
+      {
+        replacements: [thirtyDaysAgo],
+        type: db.sequelize.QueryTypes.SELECT
+      }
+    )
+
+    // 近7天数据
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    sevenDaysAgo.setHours(0, 0, 0, 0)
+
+    const weekTrendData = await db.sequelize.query(
+      `SELECT DATE(created_at) as date, SUM(amount) as amount, COUNT(id) as count 
+       FROM commissions 
+       WHERE status = 'settled' AND created_at >= ?
+       GROUP BY DATE(created_at) 
+       ORDER BY DATE(created_at) ASC`,
+      {
+        replacements: [sevenDaysAgo],
+        type: db.sequelize.QueryTypes.SELECT
+      }
+    )
 
     res.json(success({
-      statusStats: stats,
-      typeStats: typeStats
+      todayIncome: parseFloat(todayCommissions[0]?.total || 0),
+      monthIncome: parseFloat(monthCommissions[0]?.total || 0),
+      totalIncome: parseFloat(totalCommissions[0]?.total || 0),
+      balance: parseFloat(pendingWithdrawals[0]?.total || 0),
+      monthTrend: trendData,
+      weekTrend: weekTrendData
     }))
   } catch (err) {
     console.error('获取佣金统计失败:', err)

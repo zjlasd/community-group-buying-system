@@ -71,26 +71,33 @@
     <!-- 提现申请列表 -->
     <el-card shadow="hover" style="margin-top: 20px">
       <template #header>
-        <span>提现申请记录</span>
+        <div class="card-header">
+          <span>提现申请记录</span>
+          <el-button type="primary" size="small" @click="showCommissionRecords">
+            查看佣金记录
+          </el-button>
+        </div>
       </template>
 
       <!-- 搜索栏 -->
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="团长">
-          <el-select v-model="searchForm.leaderId" placeholder="全部" clearable>
-            <el-option label="全部" value="" />
-            <el-option label="张阿姨" value="1" />
-            <el-option label="李叔叔" value="2" />
-            <el-option label="王大姐" value="3" />
+          <el-select v-model="searchForm.leaderId" placeholder="全部" clearable style="width: 150px">
+            <el-option
+              v-for="leader in leaderList"
+              :key="leader.id"
+              :label="leader.name"
+              :value="leader.id"
+            />
           </el-select>
         </el-form-item>
 
         <el-form-item label="状态">
-          <el-select v-model="searchForm.status" placeholder="全部" clearable>
+          <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 120px">
             <el-option label="全部" value="" />
-            <el-option label="待审核" :value="0" />
-            <el-option label="已通过" :value="1" />
-            <el-option label="已拒绝" :value="2" />
+            <el-option label="待审核" value="pending" />
+            <el-option label="已通过" value="approved" />
+            <el-option label="已拒绝" value="rejected" />
           </el-select>
         </el-form-item>
 
@@ -98,6 +105,10 @@
           <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
             查询
+          </el-button>
+          <el-button @click="handleReset">
+            <el-icon><Refresh /></el-icon>
+            重置
           </el-button>
         </el-form-item>
       </el-form>
@@ -132,7 +143,7 @@
         <el-table-column label="操作" fixed="right" width="200">
           <template #default="{ row }">
             <el-button
-              v-if="row.status === 0"
+              v-if="row.status === 'pending'"
               link
               type="success"
               size="small"
@@ -141,7 +152,7 @@
               通过
             </el-button>
             <el-button
-              v-if="row.status === 0"
+              v-if="row.status === 'pending'"
               link
               type="danger"
               size="small"
@@ -153,60 +164,192 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 分页 -->
+      <el-pagination
+        v-model:current-page="pagination.page"
+        v-model:page-size="pagination.pageSize"
+        :total="pagination.total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        style="margin-top: 20px; justify-content: flex-end"
+        @current-change="fetchWithdrawals"
+        @size-change="fetchWithdrawals"
+      />
     </el-card>
 
-    <!-- 提现申请对话框 -->
-    <el-dialog v-model="dialogVisible" title="申请提现" width="500px">
-      <el-form :model="withdrawForm" :rules="withdrawRules" ref="formRef" label-width="100px">
-        <el-form-item label="提现金额" prop="amount">
+    <!-- 佣金记录对话框 -->
+    <el-dialog v-model="commissionDialogVisible" title="佣金记录" width="1000px">
+      <!-- 工具栏 -->
+      <div style="margin-bottom: 15px">
+        <el-button type="primary" @click="showAdjustmentDialog">
+          <el-icon><Plus /></el-icon>
+          佣金调整
+        </el-button>
+      </div>
+
+      <!-- 搜索栏 -->
+      <el-form :inline="true" :model="commissionSearchForm" style="margin-bottom: 15px">
+        <el-form-item label="团长">
+          <el-select v-model="commissionSearchForm.leaderId" placeholder="全部" clearable style="width: 150px">
+            <el-option
+              v-for="leader in leaderList"
+              :key="leader.id"
+              :label="leader.name"
+              :value="leader.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="类型">
+          <el-select v-model="commissionSearchForm.type" placeholder="全部" clearable style="width: 120px">
+            <el-option label="全部" value="" />
+            <el-option label="订单佣金" value="order" />
+            <el-option label="手动调整" value="adjustment" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="状态">
+          <el-select v-model="commissionSearchForm.status" placeholder="全部" clearable style="width: 120px">
+            <el-option label="全部" value="" />
+            <el-option label="待结算" value="pending" />
+            <el-option label="已结算" value="settled" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item>
+          <el-button type="primary" @click="handleCommissionSearch">查询</el-button>
+          <el-button @click="handleCommissionReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <!-- 佣金记录表格 -->
+      <el-table :data="commissionList" v-loading="commissionLoading" style="width: 100%">
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column label="团长" width="100">
+          <template #default="{ row }">
+            {{ row.leader?.name || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="关联订单" width="150">
+          <template #default="{ row }">
+            {{ row.order?.orderNo || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="amount" label="佣金金额（元）" width="130">
+          <template #default="{ row }">
+            <span :style="{ color: parseFloat(row.amount.toString()) >= 0 ? '#67c23a' : '#f56c6c', fontWeight: 'bold' }">
+              {{ parseFloat(row.amount.toString()) >= 0 ? '+' : '' }}¥{{ parseFloat(row.amount.toString()).toFixed(2) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="类型" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.type === 'order' ? 'success' : 'warning'">
+              {{ row.type === 'order' ? '订单佣金' : '手动调整' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'settled' ? 'success' : 'info'">
+              {{ row.status === 'settled' ? '已结算' : '待结算' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
+        <el-table-column label="创建时间" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.createdAt) }}
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 分页 -->
+      <el-pagination
+        v-model:current-page="commissionPagination.page"
+        v-model:page-size="commissionPagination.pageSize"
+        :total="commissionPagination.total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        style="margin-top: 20px; justify-content: flex-end"
+        @current-change="fetchCommissions"
+        @size-change="fetchCommissions"
+      />
+    </el-dialog>
+
+    <!-- 佣金调整对话框 -->
+    <el-dialog v-model="adjustmentDialogVisible" title="佣金调整" width="500px">
+      <el-form :model="adjustmentForm" :rules="adjustmentRules" ref="adjustmentFormRef" label-width="100px">
+        <el-form-item label="选择团长" prop="leaderId">
+          <el-select v-model="adjustmentForm.leaderId" placeholder="请选择团长" style="width: 100%">
+            <el-option
+              v-for="leader in leaderList"
+              :key="leader.id"
+              :label="`${leader.name} (${leader.phone})`"
+              :value="leader.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="调整金额" prop="amount">
           <el-input-number
-            v-model="withdrawForm.amount"
-            :min="0.01"
-            :max="stats.balance"
+            v-model="adjustmentForm.amount"
             :precision="2"
-            :step="100"
+            :step="10"
             style="width: 100%"
           />
           <div style="margin-top: 5px; font-size: 12px; color: #909399">
-            可提现余额: ¥{{ stats.balance.toFixed(2) }}
+            正数为增加佣金，负数为扣除佣金
           </div>
         </el-form-item>
 
-        <el-form-item label="账户名" prop="accountName">
-          <el-input v-model="withdrawForm.accountName" placeholder="请输入账户名" />
-        </el-form-item>
-
-        <el-form-item label="账号" prop="accountNumber">
-          <el-input v-model="withdrawForm.accountNumber" placeholder="请输入银行卡号" />
+        <el-form-item label="备注" prop="remark">
+          <el-input
+            v-model="adjustmentForm.remark"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入调整原因"
+          />
         </el-form-item>
       </el-form>
 
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmitWithdraw">提交申请</el-button>
+        <el-button @click="adjustmentDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmitAdjustment" :loading="adjustmentLoading">确定</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import type { EChartsOption } from 'echarts'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
-  getCommissionStats
+  getCommissionStats,
+  getCommissionList,
+  createAdjustment,
+  type Commission,
+  type CommissionStats
 } from '@/api/commission'
 import { getWithdrawalList, approveWithdrawal, rejectWithdrawal, type Withdrawal } from '@/api/withdrawal'
+import { getLeaderList, type Leader } from '@/api/leader'
 
 // 统计数据
-const stats = reactive({
+const stats = reactive<CommissionStats>({
   todayIncome: 0,
   monthIncome: 0,
   totalIncome: 0,
-  balance: 0
+  balance: 0,
+  monthTrend: [],
+  weekTrend: []
 })
+
+// 团长列表
+const leaderList = ref<Leader[]>([])
 
 // 趋势类型
 const trendType = ref('week')
@@ -227,6 +370,40 @@ const statsLoading = ref(false)
 // 提现申请列表
 const withdrawalList = ref<Withdrawal[]>([])
 
+// 佣金记录
+const commissionDialogVisible = ref(false)
+const commissionLoading = ref(false)
+const commissionList = ref<Commission[]>([])
+
+const commissionSearchForm = reactive({
+  leaderId: '',
+  type: '',
+  status: ''
+})
+
+const commissionPagination = reactive({
+  page: 1,
+  pageSize: 20,
+  total: 0
+})
+
+// 佣金调整
+const adjustmentDialogVisible = ref(false)
+const adjustmentLoading = ref(false)
+const adjustmentFormRef = ref<FormInstance>()
+
+const adjustmentForm = reactive({
+  leaderId: null as number | null,
+  amount: 0,
+  remark: ''
+})
+
+const adjustmentRules: FormRules = {
+  leaderId: [{ required: true, message: '请选择团长', trigger: 'change' }],
+  amount: [{ required: true, message: '请输入调整金额', trigger: 'blur' }],
+  remark: [{ required: true, message: '请输入调整原因', trigger: 'blur' }]
+}
+
 // 分页
 const pagination = reactive({
   page: 1,
@@ -240,10 +417,24 @@ const fetchStats = async () => {
     statsLoading.value = true
     const res = await getCommissionStats()
     Object.assign(stats, res.data)
+    
+    // 统计数据更新后重新渲染图表
+    await nextTick()
+    initChart()
   } catch (error: any) {
     ElMessage.error(error.message || '获取统计数据失败')
   } finally {
     statsLoading.value = false
+  }
+}
+
+// 获取团长列表
+const fetchLeaders = async () => {
+  try {
+    const res = await getLeaderList({ page: 1, pageSize: 100 })
+    leaderList.value = res.data.list
+  } catch (error: any) {
+    console.error('获取团长列表失败:', error)
   }
 }
 
@@ -266,33 +457,23 @@ const fetchWithdrawals = async () => {
   }
 }
 
-// 提现对话框
-const dialogVisible = ref(false)
-const formRef = ref<FormInstance>()
-
-const withdrawForm = reactive({
-  amount: 0,
-  accountName: '',
-  accountNumber: ''
-})
-
-const withdrawRules: FormRules = {
-  amount: [{ required: true, message: '请输入提现金额', trigger: 'blur' }],
-  accountName: [{ required: true, message: '请输入账户名', trigger: 'blur' }],
-  accountNumber: [{ required: true, message: '请输入账号', trigger: 'blur' }]
-}
-
 // 获取收益趋势数据
 const getIncomeData = (type: string) => {
-  if (type === 'week') {
+  const trendData = type === 'week' ? stats.weekTrend : stats.monthTrend
+  
+  if (!trendData || trendData.length === 0) {
     return {
-      dates: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-      incomes: [120, 150, 180, 165, 195, 210, 156.8]
+      dates: [],
+      incomes: []
     }
-  } else {
-    const dates = Array.from({ length: 30 }, (_, i) => `${i + 1}日`)
-    const incomes = Array.from({ length: 30 }, () => Math.floor(Math.random() * 100) + 100)
-    return { dates, incomes }
+  }
+
+  return {
+    dates: trendData.map(item => {
+      const date = new Date(item.date)
+      return `${date.getMonth() + 1}/${date.getDate()}`
+    }),
+    incomes: trendData.map(item => parseFloat(item.amount.toString()))
   }
 }
 
@@ -343,32 +524,35 @@ watch(trendType, () => {
 })
 
 // 获取状态类型
-const getStatusType = (status: number) => {
-  const types = ['warning', 'success', 'danger']
-  return types[status] || 'info'
+const getStatusType = (status: string) => {
+  const typeMap: Record<string, 'warning' | 'success' | 'danger' | 'info'> = {
+    'pending': 'warning',
+    'approved': 'success',
+    'rejected': 'danger'
+  }
+  return typeMap[status] || 'info'
 }
 
 // 获取状态文本
-const getStatusText = (status: number) => {
-  const texts = ['待审核', '已通过', '已拒绝']
-  return texts[status] || '未知'
-}
-
-// 提交提现申请
-const handleSubmitWithdraw = async () => {
-  if (!formRef.value) return
-
-  await formRef.value.validate((valid) => {
-    if (valid) {
-      ElMessage.success('提现申请提交成功，等待审核')
-      dialogVisible.value = false
-      formRef.value?.resetFields()
-    }
-  })
+const getStatusText = (status: string) => {
+  const textMap: Record<string, string> = {
+    'pending': '待审核',
+    'approved': '已通过',
+    'rejected': '已拒绝'
+  }
+  return textMap[status] || '未知'
 }
 
 // 查询
 const handleSearch = () => {
+  pagination.page = 1
+  fetchWithdrawals()
+}
+
+// 重置
+const handleReset = () => {
+  searchForm.leaderId = ''
+  searchForm.status = ''
   pagination.page = 1
   fetchWithdrawals()
 }
@@ -425,10 +609,87 @@ const formatDate = (date: string) => {
   return new Date(date).toLocaleString('zh-CN')
 }
 
+// 获取佣金记录列表
+const fetchCommissions = async () => {
+  try {
+    commissionLoading.value = true
+    const res = await getCommissionList({
+      page: commissionPagination.page,
+      pageSize: commissionPagination.pageSize,
+      leaderId: commissionSearchForm.leaderId || undefined,
+      type: commissionSearchForm.type || undefined,
+      status: commissionSearchForm.status || undefined
+    })
+    commissionList.value = res.data.list
+    commissionPagination.total = res.data.total
+  } catch (error: any) {
+    ElMessage.error(error.message || '获取佣金记录失败')
+  } finally {
+    commissionLoading.value = false
+  }
+}
+
+// 显示佣金记录对话框
+const showCommissionRecords = () => {
+  commissionDialogVisible.value = true
+  fetchCommissions()
+}
+
+// 佣金记录搜索
+const handleCommissionSearch = () => {
+  commissionPagination.page = 1
+  fetchCommissions()
+}
+
+// 佣金记录重置
+const handleCommissionReset = () => {
+  commissionSearchForm.leaderId = ''
+  commissionSearchForm.type = ''
+  commissionSearchForm.status = ''
+  commissionPagination.page = 1
+  fetchCommissions()
+}
+
+// 显示佣金调整对话框
+const showAdjustmentDialog = () => {
+  adjustmentDialogVisible.value = true
+  Object.assign(adjustmentForm, {
+    leaderId: null,
+    amount: 0,
+    remark: ''
+  })
+}
+
+// 提交佣金调整
+const handleSubmitAdjustment = async () => {
+  if (!adjustmentFormRef.value) return
+
+  await adjustmentFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        adjustmentLoading.value = true
+        await createAdjustment({
+          leaderId: adjustmentForm.leaderId!,
+          amount: adjustmentForm.amount,
+          remark: adjustmentForm.remark
+        })
+        ElMessage.success('佣金调整成功')
+        adjustmentDialogVisible.value = false
+        fetchCommissions()
+        fetchStats()
+      } catch (error: any) {
+        ElMessage.error(error.message || '佣金调整失败')
+      } finally {
+        adjustmentLoading.value = false
+      }
+    }
+  })
+}
+
 onMounted(() => {
-  initChart()
   fetchStats()
   fetchWithdrawals()
+  fetchLeaders()
 })
 </script>
 

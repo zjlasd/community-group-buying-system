@@ -42,15 +42,15 @@ exports.getWithdrawals = async (req, res) => {
 
     // 日期范围筛选
     if (startDate && endDate) {
-      where.createdAt = {
+      where.created_at = {
         [Op.between]: [new Date(startDate), new Date(endDate)]
       }
     } else if (startDate) {
-      where.createdAt = {
+      where.created_at = {
         [Op.gte]: new Date(startDate)
       }
     } else if (endDate) {
-      where.createdAt = {
+      where.created_at = {
         [Op.lte]: new Date(endDate)
       }
     }

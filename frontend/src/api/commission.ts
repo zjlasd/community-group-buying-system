@@ -60,14 +60,21 @@ export const getCommissionList = (params: CommissionListParams) => {
   })
 }
 
+// 佣金统计数据
+export interface CommissionStats {
+  todayIncome: number
+  monthIncome: number
+  totalIncome: number
+  balance: number
+  monthTrend: Array<{ date: string; amount: number; count: number }>
+  weekTrend: Array<{ date: string; amount: number; count: number }>
+}
+
 /**
  * 获取佣金统计数据
  */
 export const getCommissionStats = (params?: { leaderId?: number; startDate?: string; endDate?: string }) => {
-  return request<{
-    statusStats: Array<{ status: string; count: number; totalAmount: number }>
-    typeStats: Array<{ type: string; count: number; totalAmount: number }>
-  }>({
+  return request<CommissionStats>({
     url: '/commissions/stats',
     method: 'get',
     params
