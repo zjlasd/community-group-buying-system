@@ -40,21 +40,42 @@
 
       <!-- 商品列表 -->
       <el-table :data="productList" style="width: 100%; margin-top: 20px" v-loading="loading">
-        <el-table-column prop="name" label="商品名称" width="200" />
+        <el-table-column label="商品图片" width="100">
+          <template #default="{ row }">
+            <el-image
+              v-if="row.imageUrl"
+              :src="row.imageUrl"
+              :preview-src-list="[row.imageUrl]"
+              fit="cover"
+              style="width: 60px; height: 60px; border-radius: 4px"
+            />
+            <span v-else style="color: #ccc; font-size: 12px">暂无图片</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="name" label="商品名称" width="180" />
         <el-table-column prop="category" label="分类" width="100" />
         <el-table-column prop="price" label="售价" width="120">
           <template #default="{ row }">
             <span class="price">¥{{ row.price.toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="commission" label="预估佣金" width="150">
+        <el-table-column label="您的佣金" width="180">
           <template #default="{ row }">
-            <span class="commission">
-              ¥{{ (row.price * row.commissionRate).toFixed(2) }}
-              <el-tag type="warning" size="small" style="margin-left: 5px">
-                {{ (row.commissionRate * 100).toFixed(0) }}%
-              </el-tag>
-            </span>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <!-- 实际佣金 -->
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="font-weight: bold; color: #e6a23c; font-size: 16px">
+                  ¥{{ calculateActualCommission(row).toFixed(2) }}
+                </span>
+                <el-tag v-if="userStore.userInfo?.bonusRate && userStore.userInfo.bonusRate > 0" type="success" size="small">
+                  +{{ userStore.userInfo.bonusRate.toFixed(0) }}%
+                </el-tag>
+              </div>
+              <!-- 基础佣金 -->
+              <span style="font-size: 12px; color: #909399">
+                基础: ¥{{ (row.commissionAmount || 0).toFixed(2) }}
+              </span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="stock" label="库存" width="100">
@@ -71,7 +92,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="商品描述" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="description" label="商品描述" min-width="150" show-overflow-tooltip />
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="viewDetail(row)">
@@ -285,6 +306,13 @@ const shareLink = computed(() => {
   const leaderId = userStore.userInfo?.leaderId || 1
   return `https://shop.example.com/product/${currentProduct.value.id}?leader=${leaderId}`
 })
+
+// 计算团长实际佣金: 基础佣金 × (1 + 加成比例 / 100)
+const calculateActualCommission = (product: any) => {
+  const baseCommission = product.commissionAmount || 0
+  const bonusRate = userStore.userInfo?.bonusRate || 0
+  return baseCommission * (1 + bonusRate / 100)
+}
 
 const handleSearch = () => {
   loading.value = true

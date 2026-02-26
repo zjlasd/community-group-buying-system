@@ -33,7 +33,18 @@ module.exports = (sequelize) => {
       type: DataTypes.DECIMAL(5, 2),
       defaultValue: 12.00,
       field: 'commission_rate',
-      comment: '佣金比例(%)'
+      comment: '佣金比例(%)(已废弃,改用等级加成)'
+    },
+    level: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1,
+      comment: '团长等级(1-5星)'
+    },
+    bonusRate: {
+      type: DataTypes.DECIMAL(5, 2),
+      defaultValue: 0,
+      field: 'bonus_rate',
+      comment: '等级加成比例(%)'
     },
     totalOrders: {
       type: DataTypes.INTEGER,

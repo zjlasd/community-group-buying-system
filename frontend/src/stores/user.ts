@@ -8,7 +8,9 @@ export interface UserInfo {
   role: 'admin' | 'leader' // admin: 管理员, leader: 团长
   avatar?: string
   leaderId?: number // 团长ID(仅团长角色有)
-  commissionRate?: number // 佣金比例(仅团长角色有)
+  commissionRate?: number // 佣金比例(仅团长角色有,已废弃)
+  level?: number // 团长等级(1-5星,仅团长角色有)
+  bonusRate?: number // 团长等级加成比例(%,仅团长角色有)
 }
 
 export const useUserStore = defineStore('user', () => {

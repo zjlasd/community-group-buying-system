@@ -61,7 +61,9 @@ const login = async (req, res, next) => {
     // 如果是团长，返回团长信息
     if (user.role === 'leader' && user.leaderInfo) {
       userInfo.leaderId = user.leaderInfo.id
-      userInfo.commissionRate = user.leaderInfo.commissionRate
+      userInfo.commissionRate = user.leaderInfo.commissionRate  // 已废弃,但保留兼容性
+      userInfo.level = user.leaderInfo.level
+      userInfo.bonusRate = user.leaderInfo.bonusRate
       userInfo.balance = user.leaderInfo.balance
     }
     

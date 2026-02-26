@@ -27,13 +27,14 @@
       <div class="login-right">
         <div class="login-form">
           <h2>欢迎登录</h2>
-          <el-form :model="loginForm" :rules="rules" ref="formRef" @submit.prevent="handleLogin">
+          <el-form :model="loginForm" :rules="rules" ref="formRef" @submit.prevent="handleLogin" autocomplete="off">
             <el-form-item prop="username">
               <el-input
                 v-model="loginForm.username"
                 placeholder="请输入用户名"
                 size="large"
                 clearable
+                autocomplete="off"
               >
                 <template #prefix>
                   <el-icon><User /></el-icon>
@@ -49,6 +50,7 @@
                 size="large"
                 show-password
                 clearable
+                autocomplete="new-password"
               >
                 <template #prefix>
                   <el-icon><Lock /></el-icon>
@@ -124,7 +126,10 @@ const handleLogin = async () => {
           username: userInfo.username,
           nickname: userInfo.realName || userInfo.username,
           role: userInfo.role as 'admin' | 'leader',
-          avatar: userInfo.avatar
+          avatar: userInfo.avatar,
+          leaderId: userInfo.leaderId,
+          level: userInfo.level,
+          bonusRate: userInfo.bonusRate
         }
 
         userStore.login(user, token)

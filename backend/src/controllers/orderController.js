@@ -48,8 +48,15 @@ class OrderController {
 
       // 日期范围筛选
       if (startDate && endDate) {
+        // 正确处理日期范围：将endDate设置为当天的23:59:59
+        const start = new Date(startDate)
+        start.setHours(0, 0, 0, 0)
+        
+        const end = new Date(endDate)
+        end.setHours(23, 59, 59, 999)
+        
         where.created_at = {
-          [Op.between]: [new Date(startDate), new Date(endDate + ' 23:59:59')]
+          [Op.between]: [start, end]
         }
       }
 

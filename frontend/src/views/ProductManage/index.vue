@@ -70,9 +70,14 @@
             <span style="color: #f56c6c; font-weight: bold">¥{{ Number(row.price).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="commissionRate" label="建议佣金比例" width="120">
+        <el-table-column label="商品基础佣金" width="150">
           <template #default="{ row }">
-            <el-tag type="warning">{{ Number(row.commissionRate).toFixed(0) }}%</el-tag>
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <span style="font-weight: bold; color: #e6a23c">¥{{ Number(row.commissionAmount || 0).toFixed(2) }}</span>
+              <span style="font-size: 12px; color: #909399">
+                ({{ Number(row.commissionRate || 0).toFixed(0) }}%)
+              </span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="stock" label="库存" width="80">

@@ -25,7 +25,13 @@ module.exports = (sequelize) => {
       type: DataTypes.DECIMAL(5, 2),
       defaultValue: 12.00,
       field: 'commission_rate',
-      comment: '佣金比例(%)'
+      comment: '佣金比例(%)(已废弃,改用commissionAmount)'
+    },
+    commissionAmount: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0,
+      field: 'commission_amount',
+      comment: '商品基础佣金(固定金额)'
     },
     stock: {
       type: DataTypes.INTEGER,

@@ -205,7 +205,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getOrderList, updateOrderStatus, type Order } from '@/api/order'
+import { getOrderList, getOrderDetail, updateOrderStatus, type Order } from '@/api/order'
 
 const loading = ref(false)
 const detailDialogVisible = ref(false)
@@ -308,9 +308,18 @@ const handleReset = () => {
   fetchOrderList()
 }
 
-const viewDetail = (row: Order) => {
-  currentOrder.value = row
-  detailDialogVisible.value = true
+const viewDetail = async (row: Order) => {
+  try {
+    loading.value = true
+    // 调用详情接口获取完整订单信息(包括商品明细)
+    const res = await getOrderDetail(row.id)
+    currentOrder.value = res.data
+    detailDialogVisible.value = true
+    loading.value = false
+  } catch (err: any) {
+    loading.value = false
+    ElMessage.error(err.message || '获取订单详情失败')
+  }
 }
 
 const confirmReceived = async (row: Order) => {

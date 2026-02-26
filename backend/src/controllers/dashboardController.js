@@ -266,16 +266,30 @@ exports.getLeaderDashboard = async (req, res) => {
       return isNaN(parsed) ? defaultValue : parsed
     }
 
+    // 实时查询累计订单数（不使用缓存字段）
+    const totalOrderCount = await db.Order.count({
+      where: {
+        leader_id: leaderId
+      }
+    })
+
+    // 实时查询累计收益（所有订单的佣金总和，与今日/本月收益口径一致）
+    const totalCommissionAmount = await db.Order.sum('commission_amount', {
+      where: {
+        leader_id: leaderId
+      }
+    }) || 0
+
     const responseData = {
       stats: {
         todayIncome: safeParseFloat(todayStats?.income, 0).toFixed(2),
         todayOrders: parseInt(todayStats?.orderCount || 0),
         monthIncome: safeParseFloat(monthStats?.income, 0).toFixed(2),
         monthOrders: parseInt(monthStats?.orderCount || 0),
-        totalIncome: safeParseFloat(leader.total_commission, 0).toFixed(2),
-        totalOrders: leader.total_orders || 0,
+        totalIncome: safeParseFloat(totalCommissionAmount, 0).toFixed(2),  // 使用实时查询的累计佣金
+        totalOrders: totalOrderCount,  // 使用实时查询的订单数
         balance: safeParseFloat(leader.balance, 0).toFixed(2),
-        commissionRate: safeParseFloat(leader.commission_rate, 0.12),
+        commissionRate: safeParseFloat(leader.commissionRate, 0.12),  // 使用驼峰命名
         community: leader.community?.name || '-',
         customers: customerCount
       },
@@ -359,8 +373,8 @@ async function getLeaderOrderTrend(leaderId, days) {
     const nextDate = new Date(date)
     nextDate.setDate(nextDate.getDate() + 1)
 
-    const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-    dates.push(weekDays[date.getDay()])
+    // 日期标签：统一使用"月/日"格式
+    dates.push(`${date.getMonth() + 1}/${date.getDate()}`)
 
     // 订单数
     const orderCount = await db.Order.count({

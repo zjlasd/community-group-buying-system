@@ -1,5 +1,31 @@
 <template>
   <div class="leader-center" v-loading="loading">
+    <!-- 团长等级信息卡片 -->
+    <el-card shadow="hover" class="level-card" style="margin-bottom: 20px">
+      <div class="level-info">
+        <div class="level-left">
+          <el-icon :size="40" color="#409eff"><Star /></el-icon>
+          <div class="level-text">
+            <div class="level-title">
+              <span style="font-size: 18px; font-weight: bold">{{ userStore.userInfo?.nickname }}</span>
+              <el-tag :type="getLevelType(userStore.userInfo?.level || 1)" size="large" style="margin-left: 12px">
+                {{ getLevelName(userStore.userInfo?.level || 1) }}
+              </el-tag>
+            </div>
+            <div style="font-size: 14px; color: #909399; margin-top: 4px">
+              佣金加成: <span style="color: #67c23a; font-weight: bold">+{{ (userStore.userInfo?.bonusRate || 0).toFixed(0) }}%</span>
+            </div>
+          </div>
+        </div>
+        <div class="level-right">
+          <el-button type="primary" link @click="showLevelRules">
+            <el-icon><QuestionFilled /></el-icon>
+            等级规则
+          </el-button>
+        </div>
+      </div>
+    </el-card>
+
     <!-- 佣金统计卡片 -->
     <el-row :gutter="20" class="stat-cards">
       <el-col :span="6">
@@ -179,11 +205,47 @@ import type { EChartsOption } from 'echarts'
 import { useUserStore } from '@/stores/user'
 import { getLeaderDashboard } from '@/api/dashboard'
 import { createWithdrawal } from '@/api/withdrawal'
+import { Star, QuestionFilled } from '@element-plus/icons-vue'
 
 const userStore = useUserStore()
 const chartRef = ref<HTMLElement>()
 const trendType = ref('7')
 const withdrawDialogVisible = ref(false)
+
+// 获取等级名称
+const getLevelName = (level: number) => {
+  const levelNames = ['', '一星团长', '二星团长', '三星团长', '四星团长', '五星团长']
+  return levelNames[level] || '一星团长'
+}
+
+// 获取等级类型(用于Tag颜色)
+const getLevelType = (level: number) => {
+  const types = ['', 'info', 'success', 'warning', 'danger', 'primary']
+  return types[level] || 'info'
+}
+
+// 显示等级规则
+const showLevelRules = () => {
+  ElMessageBox.alert(
+    `<div style="line-height: 1.8">
+      <h3 style="margin-bottom: 12px">团长等级规则</h3>
+      <p><strong>一星团长:</strong> 累计订单 0-49单，佣金加成 0%</p>
+      <p><strong>二星团长:</strong> 累计订单 50-99单，佣金加成 5%</p>
+      <p><strong>三星团长:</strong> 累计订单 100-199单，佣金加成 10%</p>
+      <p><strong>四星团长:</strong> 累计订单 200-499单，佣金加成 15%</p>
+      <p><strong>五星团长:</strong> 累计订单 500单以上，佣金加成 20%</p>
+      <br/>
+      <p style="color: #909399; font-size: 14px">
+        实际佣金 = 商品基础佣金 × (1 + 等级加成)
+      </p>
+    </div>`,
+    '等级规则',
+    {
+      dangerouslyUseHTMLString: true,
+      confirmButtonText: '我知道了'
+    }
+  )
+}
 const withdrawFormRef = ref<FormInstance>()
 const loading = ref(false)
 
@@ -426,6 +488,29 @@ watch(trendType, () => {
 <style scoped>
 .leader-center {
   padding: 20px;
+}
+
+.level-card .level-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.level-card .level-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.level-card .level-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.level-card .level-title {
+  display: flex;
+  align-items: center;
 }
 
 .stat-cards {
