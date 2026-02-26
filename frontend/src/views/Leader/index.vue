@@ -9,10 +9,12 @@
 
         <el-form-item label="所属社区">
           <el-select v-model="searchForm.communityId" placeholder="全部" clearable>
-            <el-option label="全部" value="" />
-            <el-option label="阳光小区" value="1" />
-            <el-option label="幸福小区" value="2" />
-            <el-option label="和谐社区" value="3" />
+            <el-option
+              v-for="community in communityList"
+              :key="community.id"
+              :label="community.name"
+              :value="community.id"
+            />
           </el-select>
         </el-form-item>
 
@@ -112,6 +114,17 @@
       @close="handleDialogClose"
     >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
+        <!-- 新增时需要用户名和密码 -->
+        <template v-if="!form.id">
+          <el-form-item label="用户名" prop="username">
+            <el-input v-model="form.username" placeholder="请输入登录用户名" />
+          </el-form-item>
+
+          <el-form-item label="登录密码" prop="password">
+            <el-input v-model="form.password" type="password" placeholder="请输入登录密码" show-password />
+          </el-form-item>
+        </template>
+
         <el-form-item label="姓名" prop="name">
           <el-input v-model="form.name" placeholder="请输入团长姓名" />
         </el-form-item>
@@ -121,11 +134,13 @@
         </el-form-item>
 
         <el-form-item label="所属社区" prop="communityId">
-          <el-select v-model="form.communityId" placeholder="请选择社区" style="width: 100%">
-            <el-option label="阳光小区" value="1" />
-            <el-option label="幸福小区" value="2" />
-            <el-option label="和谐社区" value="3" />
-            <el-option label="美好家园" value="4" />
+          <el-select v-model="form.communityId" placeholder="请选择社区" style="width: 100%" clearable>
+            <el-option
+              v-for="community in communityList"
+              :key="community.id"
+              :label="community.name"
+              :value="community.id"
+            />
           </el-select>
         </el-form-item>
 
@@ -136,12 +151,12 @@
             :max="100"
             :precision="2"
             :step="0.5"
-            style="width: 100%"
+            style="width: 200px"
           />
           <span style="margin-left: 10px; color: #909399">%</span>
         </el-form-item>
 
-        <el-form-item label="状态" prop="status">
+        <el-form-item label="状态" prop="status" v-if="form.id">
           <el-radio-group v-model="form.status">
             <el-radio :value="1">启用</el-radio>
             <el-radio :value="0">禁用</el-radio>
@@ -151,17 +166,65 @@
 
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
       </template>
+    </el-dialog>
+
+    <!-- 详情对话框 -->
+    <el-dialog v-model="detailDialogVisible" title="团长详情" width="800px">
+      <el-descriptions :column="2" border v-if="currentLeader">
+        <el-descriptions-item label="姓名">{{ currentLeader.name }}</el-descriptions-item>
+        <el-descriptions-item label="联系电话">{{ currentLeader.phone }}</el-descriptions-item>
+        <el-descriptions-item label="所属社区">
+          {{ currentLeader.community?.name || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="佣金比例">
+          {{ parseFloat(currentLeader.commissionRate.toString()).toFixed(1) }}%
+        </el-descriptions-item>
+        <el-descriptions-item label="累计订单">{{ currentLeader.totalOrders }}</el-descriptions-item>
+        <el-descriptions-item label="累计佣金">
+          ¥{{ parseFloat((currentLeader.totalCommission || 0).toString()).toFixed(2) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="账户余额">
+          ¥{{ parseFloat((currentLeader.balance || 0).toString()).toFixed(2) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <el-tag :type="currentLeader.status === 1 ? 'success' : 'danger'">
+            {{ currentLeader.status === 1 ? '启用' : '禁用' }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="登录账号">
+          {{ currentLeader.user?.username || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="注册时间">
+          {{ currentLeader.createdAt ? new Date(currentLeader.createdAt).toLocaleString() : '-' }}
+        </el-descriptions-item>
+      </el-descriptions>
+
+      <el-divider>近30天订单趋势</el-divider>
+      <div v-if="leaderStats" style="height: 300px">
+        <div ref="chartRef" style="width: 100%; height: 100%"></div>
+      </div>
+      <el-empty v-else description="暂无统计数据" />
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { getLeaderList, updateLeader, type Leader } from '@/api/leader'
+import { 
+  getLeaderList, 
+  createLeader, 
+  updateLeader, 
+  getLeaderById,
+  getLeaderStats,
+  type Leader,
+  type LeaderStats
+} from '@/api/leader'
+import { getCommunityList } from '@/api/community'
+import * as echarts from 'echarts'
 
 // 搜索表单
 const searchForm = reactive({
@@ -211,31 +274,59 @@ watch([() => pagination.page, () => pagination.pageSize], () => {
 // 页面加载时获取数据
 onMounted(() => {
   fetchLeaders()
+  fetchCommunities()
 })
+
+// 社区列表
+const communityList = ref<any[]>([])
+
+// 获取社区列表
+const fetchCommunities = async () => {
+  try {
+    const res = await getCommunityList({ page: 1, pageSize: 100 })
+    communityList.value = res.data.list
+  } catch (error: any) {
+    console.error('获取社区列表失败:', error)
+  }
+}
 
 // 对话框
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增团长')
 const formRef = ref<FormInstance>()
+const submitLoading = ref(false)
 
 const form = reactive({
   id: 0,
+  username: '',
+  password: '',
   name: '',
   phone: '',
   communityId: null as number | null,
-  commissionRate: 10.0,
+  commissionRate: 12.0,
   status: 1
 })
 
 const rules: FormRules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+  ],
   name: [{ required: true, message: '请输入团长姓名', trigger: 'blur' }],
   phone: [
     { required: true, message: '请输入联系电话', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
   ],
-  communityId: [{ required: true, message: '请选择所属社区', trigger: 'change' }],
   commissionRate: [{ required: true, message: '请输入佣金比例', trigger: 'blur' }]
 }
+
+// 详情对话框
+const detailDialogVisible = ref(false)
+const currentLeader = ref<Leader | null>(null)
+const leaderStats = ref<LeaderStats | null>(null)
+const chartRef = ref<HTMLElement>()
+let chartInstance: echarts.ECharts | null = null
 
 // 查询
 const handleSearch = () => {
@@ -255,21 +346,56 @@ const handleReset = () => {
 // 新增
 const handleAdd = () => {
   dialogTitle.value = '新增团长'
-  ElMessage.info('新增团长功能开发中...')
-  // dialogVisible.value = true
+  Object.assign(form, {
+    id: 0,
+    username: '',
+    password: '',
+    name: '',
+    phone: '',
+    communityId: null,
+    commissionRate: 12.0,
+    status: 1
+  })
+  dialogVisible.value = true
 }
 
 // 查看详情
-const handleView = (row: Leader) => {
-  ElMessage.info(`查看团长详情功能开发中: ${row.name}`)
+const handleView = async (row: Leader) => {
+  try {
+    currentLeader.value = null
+    leaderStats.value = null
+    detailDialogVisible.value = true
+
+    // 获取详情
+    const detailRes = await getLeaderById(row.id)
+    currentLeader.value = detailRes.data
+
+    // 获取统计数据
+    const statsRes = await getLeaderStats(row.id)
+    leaderStats.value = statsRes.data
+
+    // 渲染图表
+    await nextTick()
+    renderChart()
+  } catch (error: any) {
+    ElMessage.error(error.message || '获取团长详情失败')
+  }
 }
 
 // 编辑
 const handleEdit = (row: Leader) => {
   dialogTitle.value = '编辑团长'
-  ElMessage.info(`编辑团长功能开发中: ${row.name}`)
-  // Object.assign(form, row)
-  // dialogVisible.value = true
+  Object.assign(form, {
+    id: row.id,
+    username: '',
+    password: '',
+    name: row.name,
+    phone: row.phone,
+    communityId: row.communityId,
+    commissionRate: parseFloat(row.commissionRate.toString()),
+    status: row.status
+  })
+  dialogVisible.value = true
 }
 
 // 切换状态
@@ -299,10 +425,41 @@ const handleToggleStatus = async (row: Leader) => {
 const handleSubmit = async () => {
   if (!formRef.value) return
 
-  await formRef.value.validate((valid) => {
+  await formRef.value.validate(async (valid) => {
     if (valid) {
-      ElMessage.success(dialogTitle.value + '成功')
-      dialogVisible.value = false
+      try {
+        submitLoading.value = true
+        const isEdit = form.id > 0
+
+        if (isEdit) {
+          // 编辑团长
+          await updateLeader(form.id, {
+            name: form.name,
+            phone: form.phone,
+            communityId: form.communityId,
+            commissionRate: form.commissionRate,
+            status: form.status
+          })
+        } else {
+          // 新增团长
+          await createLeader({
+            username: form.username,
+            password: form.password,
+            name: form.name,
+            phone: form.phone,
+            communityId: form.communityId || undefined,
+            commissionRate: form.commissionRate
+          })
+        }
+
+        ElMessage.success(dialogTitle.value + '成功')
+        dialogVisible.value = false
+        fetchLeaders()
+      } catch (error: any) {
+        ElMessage.error(error.message || (form.id ? '编辑' : '新增') + '失败')
+      } finally {
+        submitLoading.value = false
+      }
     }
   })
 }
@@ -311,13 +468,81 @@ const handleSubmit = async () => {
 const handleDialogClose = () => {
   formRef.value?.resetFields()
   Object.assign(form, {
-    id: '',
+    id: 0,
+    username: '',
+    password: '',
     name: '',
     phone: '',
-    communityId: '',
-    commissionRate: 10.0,
+    communityId: null,
+    commissionRate: 12.0,
     status: 1
   })
+}
+
+// 渲染图表
+const renderChart = () => {
+  if (!chartRef.value || !leaderStats.value) return
+
+  if (!chartInstance) {
+    chartInstance = echarts.init(chartRef.value)
+  }
+
+  const dates = leaderStats.value.recentOrders.map(item => item.date)
+  const counts = leaderStats.value.recentOrders.map(item => item.count)
+  const amounts = leaderStats.value.recentOrders.map(item => parseFloat(item.amount.toString()))
+
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross'
+      }
+    },
+    legend: {
+      data: ['订单数', '销售额']
+    },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      axisLabel: {
+        rotate: 45
+      }
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '订单数',
+        position: 'left'
+      },
+      {
+        type: 'value',
+        name: '销售额(元)',
+        position: 'right'
+      }
+    ],
+    series: [
+      {
+        name: '订单数',
+        type: 'line',
+        data: counts,
+        smooth: true,
+        itemStyle: {
+          color: '#409EFF'
+        }
+      },
+      {
+        name: '销售额',
+        type: 'bar',
+        yAxisIndex: 1,
+        data: amounts,
+        itemStyle: {
+          color: '#67C23A'
+        }
+      }
+    ]
+  }
+
+  chartInstance.setOption(option)
 }
 </script>
 
