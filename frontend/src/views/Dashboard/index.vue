@@ -126,10 +126,16 @@ const orderChartRef = ref<HTMLDivElement>()
 const salesChartRef = ref<HTMLDivElement>()
 
 // 趋势数据
-const trendsData = ref({
+const trendsData = ref<{
+  week: { dates: string[]; orders: number[]; sales: number[] }
+  month: { dates: string[]; orders: number[]; sales: number[] }
+}>({
   week: { dates: [], orders: [], sales: [] },
   month: { dates: [], orders: [], sales: [] }
 })
+
+// 销售额分类数据
+const salesByCategory = ref<Array<{ name: string; value: number }>>([])
 
 // 团长排行数据
 const leaderRanking = ref<any[]>([])
@@ -147,6 +153,9 @@ const loadDashboardData = async () => {
     
     // 更新团长排行
     leaderRanking.value = res.data.leaderRanking
+    
+    // 更新销售额分类数据
+    salesByCategory.value = res.data.salesByCategory || []
     
     // 初始化图表
     initOrderChart()
@@ -262,13 +271,9 @@ const initSalesChart = () => {
             fontWeight: 'bold'
           }
         },
-        data: [
-          { value: 45600, name: '水果生鲜' },
-          { value: 28500, name: '粮油调味' },
-          { value: 18200, name: '休闲零食' },
-          { value: 15800, name: '日用百货' },
-          { value: 12400, name: '其他' }
-        ]
+        data: salesByCategory.value.length > 0 
+          ? salesByCategory.value 
+          : [{ value: 0, name: '暂无数据' }]
       }
     ]
   }

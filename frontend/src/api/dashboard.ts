@@ -31,6 +31,10 @@ export interface AdminDashboardData {
     sales: number
     commission: number
   }>
+  salesByCategory: Array<{
+    name: string
+    value: number
+  }>
 }
 
 // 团长看板数据

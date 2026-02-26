@@ -105,6 +105,40 @@ exports.getAdminDashboard = async (req, res) => {
       commission: parseFloat(leader.get('totalCommission')) || 0
     }))
 
+    // 按商品分类统计销售额(用于饼图)
+    const categorySales = await db.OrderItem.findAll({
+      attributes: [
+        [db.sequelize.col('product.category'), 'category'],
+        [db.sequelize.fn('SUM', db.sequelize.literal('`OrderItem`.`quantity` * `OrderItem`.`product_price`')), 'totalSales']
+      ],
+      include: [{
+        model: db.Product,
+        as: 'product',
+        attributes: [],
+        where: {
+          category: {
+            [Op.ne]: null
+          }
+        }
+      }, {
+        model: db.Order,
+        as: 'order',
+        attributes: [],
+        where: {
+          created_at: {
+            [Op.gte]: monthStart
+          }
+        }
+      }],
+      group: ['product.category'],
+      raw: true
+    })
+
+    const salesByCategory = categorySales.map(item => ({
+      name: item.category || '其他',
+      value: parseFloat(item.totalSales) || 0
+    }))
+
     res.json(success({
       stats: {
         todayOrders,
@@ -116,7 +150,8 @@ exports.getAdminDashboard = async (req, res) => {
         week: sevenDaysData,
         month: thirtyDaysData
       },
-      leaderRanking: rankingList
+      leaderRanking: rankingList,
+      salesByCategory
     }))
   } catch (err) {
     console.error('获取管理员看板数据失败:', err)
