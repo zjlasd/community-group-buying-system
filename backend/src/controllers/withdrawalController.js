@@ -76,8 +76,24 @@ exports.getWithdrawals = async (req, res) => {
       offset: offset
     })
 
+    // 格式化返回数据，确保前端能正确读取字段
+    // 注意：Sequelize 已经将数据库字段（如 account_name）转换为驼峰命名（accountName）
+    const list = rows.map(row => ({
+      id: row.id,
+      leaderId: row.leaderId,           // Sequelize自动转换
+      amount: row.amount,
+      accountName: row.accountName,     // Sequelize自动转换
+      accountNumber: row.accountNumber, // Sequelize自动转换
+      status: row.status,
+      remark: row.remark,
+      rejectReason: row.rejectReason,   // Sequelize自动转换
+      createdAt: row.created_at,        // 这个字段是timestamps，需要从原始字段获取
+      reviewedAt: row.reviewedAt,       // Sequelize自动转换
+      leader: row.leader
+    }))
+
     res.json(success({
-      list: rows,
+      list,
       total: count,
       page: parseInt(page),
       pageSize: parseInt(pageSize)

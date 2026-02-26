@@ -82,7 +82,13 @@
       <!-- 搜索栏 -->
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="团长">
-          <el-select v-model="searchForm.leaderId" placeholder="全部" clearable style="width: 150px">
+          <el-select 
+            v-model="searchForm.leaderId" 
+            placeholder="全部" 
+            clearable 
+            filterable
+            style="width: 150px"
+          >
             <el-option
               v-for="leader in leaderList"
               :key="leader.id"
@@ -231,11 +237,6 @@
             {{ row.leader?.name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="关联订单" width="150">
-          <template #default="{ row }">
-            {{ row.order?.orderNo || '-' }}
-          </template>
-        </el-table-column>
         <el-table-column prop="amount" label="佣金金额（元）" width="130">
           <template #default="{ row }">
             <span :style="{ color: parseFloat(row.amount.toString()) >= 0 ? '#67c23a' : '#f56c6c', fontWeight: 'bold' }">
@@ -246,7 +247,7 @@
         <el-table-column label="类型" width="100">
           <template #default="{ row }">
             <el-tag :type="row.type === 'order' ? 'success' : 'warning'">
-              {{ row.type === 'order' ? '订单佣金' : '手动调整' }}
+              {{ row.type === 'order' ? '订单佣金' : row.type === 'adjustment' ? '手动调整' : row.remark || '-' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -260,7 +261,7 @@
         <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
         <el-table-column label="创建时间" width="160">
           <template #default="{ row }">
-            {{ formatDate(row.createdAt) }}
+            {{ formatDate(row.createdAt || row.created_at) }}
           </template>
         </el-table-column>
       </el-table>
@@ -276,6 +277,57 @@
         @current-change="fetchCommissions"
         @size-change="fetchCommissions"
       />
+    </el-dialog>
+
+    <!-- 提现详情对话框 -->
+    <el-dialog v-model="detailDialogVisible" title="提现申请详情" width="600px">
+      <el-descriptions :column="2" border v-if="currentWithdrawal">
+        <el-descriptions-item label="申请ID">{{ currentWithdrawal.id }}</el-descriptions-item>
+        <el-descriptions-item label="申请团长">{{ currentWithdrawal.leader?.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="团长电话">{{ currentWithdrawal.leader?.phone || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="提现金额">
+          <span style="color: #f56c6c; font-weight: bold; font-size: 16px">
+            ¥{{ Number(currentWithdrawal.amount || 0).toFixed(2) }}
+          </span>
+        </el-descriptions-item>
+        <el-descriptions-item label="账户名">{{ currentWithdrawal.accountName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="账号">{{ currentWithdrawal.accountNumber || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <el-tag :type="getStatusType(String(currentWithdrawal.status))">
+            {{ getStatusText(String(currentWithdrawal.status)) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="申请时间" :span="2">
+          {{ formatDate(currentWithdrawal.createdAt) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="审核时间" :span="2" v-if="currentWithdrawal.reviewedAt || currentWithdrawal.auditedAt">
+          {{ formatDate(currentWithdrawal.reviewedAt || currentWithdrawal.auditedAt || '') }}
+        </el-descriptions-item>
+        <el-descriptions-item label="备注" :span="2" v-if="currentWithdrawal.remark">
+          {{ currentWithdrawal.remark }}
+        </el-descriptions-item>
+        <el-descriptions-item label="拒绝原因" :span="2" v-if="currentWithdrawal.rejectReason">
+          <span style="color: #f56c6c">{{ currentWithdrawal.rejectReason }}</span>
+        </el-descriptions-item>
+      </el-descriptions>
+
+      <template #footer>
+        <el-button @click="detailDialogVisible = false">关闭</el-button>
+        <el-button 
+          v-if="currentWithdrawal?.status === 'pending'" 
+          type="success" 
+          @click="handleApproveFromDetail"
+        >
+          通过
+        </el-button>
+        <el-button 
+          v-if="currentWithdrawal?.status === 'pending'" 
+          type="danger" 
+          @click="handleRejectFromDetail"
+        >
+          拒绝
+        </el-button>
+      </template>
     </el-dialog>
 
     <!-- 佣金调整对话框 -->
@@ -370,6 +422,10 @@ const statsLoading = ref(false)
 // 提现申请列表
 const withdrawalList = ref<Withdrawal[]>([])
 
+// 提现详情
+const detailDialogVisible = ref(false)
+const currentWithdrawal = ref<Withdrawal | null>(null)
+
 // 佣金记录
 const commissionDialogVisible = ref(false)
 const commissionLoading = ref(false)
@@ -428,10 +484,10 @@ const fetchStats = async () => {
   }
 }
 
-// 获取团长列表
+// 获取团长列表（获取所有团长，不分页）
 const fetchLeaders = async () => {
   try {
-    const res = await getLeaderList({ page: 1, pageSize: 100 })
+    const res = await getLeaderList({ page: 1, pageSize: 9999 })  // 使用足够大的数值获取所有团长
     leaderList.value = res.data.list
   } catch (error: any) {
     console.error('获取团长列表失败:', error)
@@ -558,8 +614,72 @@ const handleReset = () => {
 }
 
 // 查看详情
-const handleView = (row: any) => {
-  ElMessage.info(`查看提现申请: ${row.id}`)
+const handleView = (row: Withdrawal) => {
+  currentWithdrawal.value = row
+  detailDialogVisible.value = true
+}
+
+// 从详情弹窗中通过审核
+const handleApproveFromDetail = async () => {
+  if (!currentWithdrawal.value) return
+  
+  try {
+    await ElMessageBox.confirm(
+      `确定通过 ${currentWithdrawal.value.leader?.name} 的提现申请吗?`,
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'success'
+      }
+    )
+    
+    await approveWithdrawal(currentWithdrawal.value.id, { remark: '审核通过' })
+    ElMessage.success('审核通过')
+    detailDialogVisible.value = false
+    currentWithdrawal.value = null
+    fetchWithdrawals()
+    fetchStats()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '操作失败')
+    }
+  }
+}
+
+// 从详情弹窗中拒绝审核
+const handleRejectFromDetail = async () => {
+  if (!currentWithdrawal.value) return
+  
+  try {
+    const result = await ElMessageBox.prompt(
+      '请输入拒绝原因',
+      '拒绝提现申请',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputValidator: (value) => {
+          if (!value) {
+            return '请输入拒绝原因'
+          }
+          return true
+        }
+      }
+    )
+    
+    const remark = (result as any).value
+    await rejectWithdrawal(currentWithdrawal.value.id, { remark })
+    ElMessage.success('已拒绝')
+    detailDialogVisible.value = false
+    currentWithdrawal.value = null
+    fetchWithdrawals()
+    fetchStats()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '操作失败')
+    }
+  }
 }
 
 // 审核通过

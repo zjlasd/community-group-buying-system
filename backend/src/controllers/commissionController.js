@@ -86,8 +86,22 @@ exports.getCommissions = async (req, res) => {
       offset: offset
     })
 
+    // 格式化返回数据，确保前端能正确读取字段
+    const list = rows.map(row => ({
+      id: row.id,
+      leaderId: row.leaderId,
+      orderId: row.orderId,
+      amount: row.amount,
+      type: row.type,
+      status: row.status,
+      remark: row.remark,
+      createdAt: row.created_at,  // 将 created_at 映射为 createdAt
+      leader: row.leader,
+      order: row.order
+    }))
+
     res.json(success({
-      list: rows,
+      list,
       total: count,
       page: parseInt(page),
       pageSize: parseInt(pageSize)
