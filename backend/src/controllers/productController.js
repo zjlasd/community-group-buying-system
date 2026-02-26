@@ -313,14 +313,18 @@ exports.getProductSales = async (req, res, next) => {
       date: item.date,
       quantity: parseInt(item.quantity) || 0,
       amount: parseFloat(item.amount) || 0,
-      commission: (parseFloat(item.amount) * parseFloat(product.commission_rate) / 100).toFixed(2)
+      commission: (parseFloat(item.amount) * parseFloat(product.commissionRate) / 100).toFixed(2)
     }))
 
-    // 累计统计
+    // 计算累计统计(从实际订单数据汇总)
+    const totalQuantity = salesWithCommission.reduce((sum, item) => sum + item.quantity, 0)
+    const totalAmount = salesWithCommission.reduce((sum, item) => sum + item.amount, 0)
+    const totalCommission = salesWithCommission.reduce((sum, item) => sum + parseFloat(item.commission), 0)
+
     const totalStats = {
-      totalQuantity: product.sales || 0,
-      totalAmount: (parseFloat(product.price) * (product.sales || 0)).toFixed(2),
-      totalCommission: (parseFloat(product.price) * (product.sales || 0) * parseFloat(product.commission_rate) / 100).toFixed(2)
+      totalQuantity: totalQuantity,
+      totalAmount: totalAmount.toFixed(2),
+      totalCommission: totalCommission.toFixed(2)
     }
 
     res.json(success({
@@ -329,7 +333,7 @@ exports.getProductSales = async (req, res, next) => {
         name: product.name,
         category: product.category,
         price: product.price,
-        commission_rate: product.commission_rate,
+        commissionRate: product.commissionRate,
         stock: product.stock,
         sales: product.sales
       },

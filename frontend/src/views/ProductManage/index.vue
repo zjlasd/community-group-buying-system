@@ -3,8 +3,8 @@
     <el-card class="header-card">
       <div class="header-content">
         <div>
-          <h2 style="margin: 0 0 8px 0">商品管理</h2>
-          <span style="color: #909399; font-size: 14px">管理商品信息、设置佣金比例、控制上下架状态</span>
+          <h2 style="margin: 0 0 8px 0; color: white;">商品管理</h2>
+          <span style="color: rgba(255, 255, 255, 0.9); font-size: 14px">管理商品信息、设置佣金比例、控制上下架状态</span>
         </div>
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>
@@ -20,7 +20,7 @@
           <el-input v-model="searchForm.keyword" placeholder="请输入商品名称" clearable />
         </el-form-item>
         <el-form-item label="商品分类">
-          <el-select v-model="searchForm.category" placeholder="请选择分类" clearable>
+          <el-select v-model="searchForm.category" placeholder="请选择分类" clearable style="width: 150px">
             <el-option label="全部分类" value="" />
             <el-option label="水果" value="水果" />
             <el-option label="蔬菜" value="蔬菜" />
@@ -30,7 +30,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="商品状态">
-          <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
+          <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 150px">
             <el-option label="全部状态" value="" />
             <el-option label="已上架" value="1" />
             <el-option label="已下架" value="0" />
@@ -56,10 +56,10 @@
         <el-table-column label="商品图片" width="100">
           <template #default="{ row }">
             <el-image
-              :src="row.image_url || 'https://picsum.photos/200/200'"
+              :src="row.imageUrl || 'https://picsum.photos/200/200'"
               fit="cover"
-              style="width: 60px; height: 60px; border-radius: 4px"
-              :preview-src-list="[row.image_url || 'https://picsum.photos/200/200']"
+              style="width: 60px; height: 60px; border-radius: 4px; cursor: pointer"
+              @click="handleImagePreview(row)"
             />
           </template>
         </el-table-column>
@@ -70,9 +70,9 @@
             <span style="color: #f56c6c; font-weight: bold">¥{{ Number(row.price).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="commission_rate" label="佣金比例" width="100">
+        <el-table-column prop="commissionRate" label="佣金比例" width="100">
           <template #default="{ row }">
-            <el-tag type="warning">{{ Number(row.commission_rate).toFixed(0) }}%</el-tag>
+            <el-tag type="warning">{{ Number(row.commissionRate).toFixed(0) }}%</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="stock" label="库存" width="80">
@@ -148,8 +148,8 @@
             <el-option label="粮油" value="粮油" />
           </el-select>
         </el-form-item>
-        <el-form-item label="商品图片" prop="image_url">
-          <el-input v-model="formData.image_url" placeholder="请输入图片URL">
+        <el-form-item label="商品图片" prop="imageUrl">
+          <el-input v-model="formData.imageUrl" placeholder="请输入图片URL">
             <template #append>
               <el-button @click="useDefaultImage">使用默认</el-button>
             </template>
@@ -165,9 +165,9 @@
             placeholder="请输入价格"
           />
         </el-form-item>
-        <el-form-item label="佣金比例" prop="commission_rate">
+        <el-form-item label="佣金比例" prop="commissionRate">
           <el-slider
-            v-model="formData.commission_rate"
+            v-model="formData.commissionRate"
             :min="5"
             :max="30"
             :step="1"
@@ -175,7 +175,7 @@
             :format-tooltip="(val: number) => val + '%'"
           />
           <div style="margin-top: 8px; font-size: 12px; color: #909399">
-            团长每售出一件商品可获得：¥{{ (formData.price * formData.commission_rate / 100).toFixed(2) }} 佣金
+            团长每售出一件商品可获得：¥{{ (formData.price * formData.commissionRate / 100).toFixed(2) }} 佣金
           </div>
         </el-form-item>
         <el-form-item label="库存数量" prop="stock">
@@ -214,7 +214,7 @@
         <el-descriptions-item label="商品名称">{{ currentProduct.name }}</el-descriptions-item>
         <el-descriptions-item label="商品分类">{{ currentProduct.category }}</el-descriptions-item>
         <el-descriptions-item label="销售价格">¥{{ Number(currentProduct.price).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="佣金比例">{{ Number(currentProduct.commission_rate).toFixed(0) }}%</el-descriptions-item>
+        <el-descriptions-item label="佣金比例">{{ Number(currentProduct.commissionRate).toFixed(0) }}%</el-descriptions-item>
         <el-descriptions-item label="当前库存">{{ currentProduct.stock }}</el-descriptions-item>
         <el-descriptions-item label="累计销量">{{ salesStats?.totalStats.totalQuantity || 0 }}</el-descriptions-item>
         <el-descriptions-item label="累计销售额">
@@ -272,9 +272,9 @@ const formData = reactive({
   id: 0,
   name: '',
   category: '',
-  image_url: '',
+  imageUrl: '',
   price: 0,
-  commission_rate: 12,
+  commissionRate: 12,
   stock: 100,
   description: '',
   status: 1
@@ -283,9 +283,9 @@ const formData = reactive({
 const rules: FormRules = {
   name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
   category: [{ required: true, message: '请选择商品分类', trigger: 'change' }],
-  image_url: [{ required: true, message: '请输入商品图片URL', trigger: 'blur' }],
+  imageUrl: [{ required: true, message: '请输入商品图片URL', trigger: 'blur' }],
   price: [{ required: true, message: '请输入销售价格', trigger: 'blur' }],
-  commission_rate: [{ required: true, message: '请设置佣金比例', trigger: 'blur' }],
+  commissionRate: [{ required: true, message: '请设置佣金比例', trigger: 'blur' }],
   stock: [{ required: true, message: '请输入库存数量', trigger: 'blur' }]
 }
 
@@ -330,9 +330,9 @@ const handleAdd = () => {
     id: 0,
     name: '',
     category: '',
-    image_url: '',
+    imageUrl: '',
     price: 0,
-    commission_rate: 12,
+    commissionRate: 12,
     stock: 100,
     description: '',
     status: 1
@@ -346,9 +346,9 @@ const handleEdit = (row: any) => {
     id: row.id,
     name: row.name,
     category: row.category,
-    image_url: row.image_url,
+    imageUrl: row.imageUrl,
     price: Number(row.price),
-    commission_rate: Number(row.commission_rate),
+    commissionRate: Number(row.commissionRate),
     stock: Number(row.stock),
     description: row.description,
     status: row.status
@@ -362,12 +362,13 @@ const handleSubmit = async () => {
     if (valid) {
       try {
         const isEdit = formData.id > 0
+        // 转换为后端需要的下划线命名
         const submitData = {
           name: formData.name,
           category: formData.category,
-          image_url: formData.image_url,
+          image_url: formData.imageUrl,
           price: formData.price,
-          commission_rate: formData.commission_rate,
+          commission_rate: formData.commissionRate,
           stock: formData.stock,
           description: formData.description
         }
@@ -390,6 +391,23 @@ const handleSubmit = async () => {
       }
     }
   })
+}
+
+// 图片预览 - 打开商品详情
+const handleImagePreview = (row: any) => {
+  dialogTitle.value = '商品详情'
+  Object.assign(formData, {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    imageUrl: row.imageUrl,
+    price: Number(row.price),
+    commissionRate: Number(row.commissionRate),
+    stock: Number(row.stock),
+    description: row.description,
+    status: row.status
+  })
+  dialogVisible.value = true
 }
 
 const handleToggleStatus = (row: any) => {
@@ -449,7 +467,7 @@ const handleViewStats = async (row: any) => {
 }
 
 const useDefaultImage = () => {
-  formData.image_url = `https://picsum.photos/200/200?random=${Date.now()}`
+  formData.imageUrl = `https://picsum.photos/200/200?random=${Date.now()}`
   ElMessage.success('已设置默认图片')
 }
 

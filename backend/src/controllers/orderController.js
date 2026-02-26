@@ -100,9 +100,27 @@ class OrderController {
       
       logger.info(`查询到${rows.length}条订单`)
       
-      // 转换为普通JSON对象
-      const plainRows = rows.map(row => row.get({ plain: true }))
-      logger.info(`第一订单数据: ${JSON.stringify(plainRows[0], null, 2)}`)
+      // 转换为JSON并统一字段名为驼峰命名
+      const plainRows = rows.map(row => {
+        const json = row.toJSON()
+        // 将下划线字段名转换为驼峰命名
+        return {
+          id: json.id,
+          orderNo: json.orderNo,
+          leaderId: json.leaderId,
+          communityId: json.communityId,
+          customerName: json.customerName,
+          customerPhone: json.customerPhone,
+          totalAmount: json.totalAmount,
+          commissionAmount: json.commissionAmount,
+          status: json.status,
+          confirmedAt: json.confirmedAt,
+          completedAt: json.completedAt,
+          createdAt: json.created_at,  // ← 关键:将created_at转为createdAt
+          leader: json.leader,
+          community: json.community
+        }
+      })
 
       res.json({
         code: 200,
@@ -295,7 +313,7 @@ class OrderController {
           status: { [Op.in]: ['confirmed', 'delivering'] },
           created_at: {
             [Op.between]: [
-              new Date(deliveryDate),
+              new Date(deliveryDate + ' 00:00:00'),
               new Date(deliveryDate + ' 23:59:59')
             ]
           }
@@ -318,7 +336,7 @@ class OrderController {
               {
                 model: db.Product,
                 as: 'product',
-                attributes: ['id', 'name', 'unit']
+                attributes: ['id', 'name']
               }
             ]
           }

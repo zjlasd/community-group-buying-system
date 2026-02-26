@@ -102,9 +102,15 @@
             <span style="color: #67c23a; font-weight: bold">¥{{ parseFloat(row.totalAmount).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="佣金" width="100">
+        <el-table-column label="佣金" width="120">
           <template #default="{ row }">
-            <span style="color: #409eff">¥{{ parseFloat(row.commissionAmount).toFixed(2) }}</span>
+            <span v-if="row.status === 'completed'" style="color: #67c23a; font-weight: bold">
+              ¥{{ parseFloat(row.commissionAmount).toFixed(2) }}
+            </span>
+            <span v-else-if="row.commissionAmount > 0" style="color: #409eff">
+              ¥{{ parseFloat(row.commissionAmount).toFixed(2) }}
+            </span>
+            <el-tag v-else type="info" size="small">待结算</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">

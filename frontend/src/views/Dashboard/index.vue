@@ -177,32 +177,65 @@ const initOrderChart = () => {
       trigger: 'axis',
       axisPointer: {
         type: 'cross'
+      },
+      formatter: (params: any) => {
+        if (!params || !params.length) return ''
+        const date = params[0].axisValue
+        let result = `<div style="margin-bottom:4px">${date}</div>`
+        params.forEach((item: any) => {
+          if (item.seriesName === '订单数') {
+            result += `<div>${item.marker}${item.seriesName}: ${item.value}笔</div>`
+          } else {
+            result += `<div>${item.marker}${item.seriesName}: ¥${(item.value / 10000).toFixed(2)}万</div>`
+          }
+        })
+        return result
       }
     },
     legend: {
-      data: ['订单数', '销售额']
+      data: ['订单数', '销售额'],
+      top: 10
     },
     grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
+      left: 60,
+      right: 80,
+      bottom: 60,
+      top: 50,
+      containLabel: false
     },
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: data.dates
+      data: data.dates,
+      axisLabel: {
+        rotate: 45,
+        interval: 'auto',
+        fontSize: 10,
+        margin: 10
+      }
     },
     yAxis: [
       {
         type: 'value',
         name: '订单数',
-        position: 'left'
+        position: 'left',
+        nameTextStyle: {
+          padding: [0, 0, 0, 0]
+        },
+        axisLabel: {
+          formatter: '{value}'
+        }
       },
       {
         type: 'value',
-        name: '销售额',
-        position: 'right'
+        name: '销售额(万元)',
+        position: 'right',
+        nameTextStyle: {
+          padding: [0, 0, 0, 0]
+        },
+        axisLabel: {
+          formatter: (value: number) => (value / 10000).toFixed(1)
+        }
       }
     ],
     series: [
@@ -247,28 +280,42 @@ const initSalesChart = () => {
     },
     legend: {
       orient: 'vertical',
-      left: 'left'
+      left: '5%',
+      top: 'middle',
+      icon: 'circle',
+      itemGap: 12,
+      textStyle: {
+        fontSize: 12
+      }
     },
     series: [
       {
         name: '销售额',
         type: 'pie',
-        radius: ['40%', '70%'],
-        avoidLabelOverlap: false,
+        radius: ['35%', '60%'],
+        center: ['65%', '50%'],
+        avoidLabelOverlap: true,
         itemStyle: {
-          borderRadius: 10,
+          borderRadius: 8,
           borderColor: '#fff',
           borderWidth: 2
         },
         label: {
-          show: true,
-          formatter: '{b}\n¥{c}'
+          show: false  // 默认不显示标签
+        },
+        labelLine: {
+          show: false  // 默认不显示引导线
         },
         emphasis: {
           label: {
             show: true,
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: 'bold'
+          },
+          itemStyle: {
+            shadowBlur: 10,
+            shadowOffsetX: 0,
+            shadowColor: 'rgba(0, 0, 0, 0.5)'
           }
         },
         data: salesByCategory.value.length > 0 

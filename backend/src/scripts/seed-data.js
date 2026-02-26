@@ -69,7 +69,7 @@ const seedData = async () => {
         commissionRate: 12,
         stock: 150,
         sales: 0,
-        imageUrl: 'https://via.placeholder.com/300x300?text=草莓',
+        imageUrl: 'https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=300&h=300&fit=crop',
         description: '新鲜采摘的草莓，香甜可口',
         status: 1
       },
@@ -80,7 +80,7 @@ const seedData = async () => {
         commissionRate: 15,
         stock: 80,
         sales: 0,
-        imageUrl: 'https://via.placeholder.com/300x300?text=蔬菜',
+        imageUrl: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=300&h=300&fit=crop',
         description: '5种有机蔬菜组合装',
         status: 1
       },
@@ -91,7 +91,7 @@ const seedData = async () => {
         commissionRate: 10,
         stock: 45,
         sales: 0,
-        imageUrl: 'https://via.placeholder.com/300x300?text=车厘子',
+        imageUrl: 'https://images.unsplash.com/photo-1528821128474-27f963b062bf?w=300&h=300&fit=crop',
         description: '智利进口车厘子，颗颗饱满',
         status: 1
       },
@@ -102,7 +102,7 @@ const seedData = async () => {
         commissionRate: 12,
         stock: 200,
         sales: 0,
-        imageUrl: 'https://via.placeholder.com/300x300?text=牛奶',
+        imageUrl: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=300&h=300&fit=crop',
         description: '本地新鲜牛奶，每日配送',
         status: 1
       },
@@ -113,7 +113,7 @@ const seedData = async () => {
         commissionRate: 15,
         stock: 120,
         sales: 0,
-        imageUrl: 'https://via.placeholder.com/300x300?text=鸡蛋',
+        imageUrl: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=300&h=300&fit=crop',
         description: '农家散养土鸡蛋，30枚装',
         status: 1
       },
@@ -124,7 +124,7 @@ const seedData = async () => {
         commissionRate: 12,
         stock: 60,
         sales: 0,
-        imageUrl: 'https://via.placeholder.com/300x300?text=蓝莓',
+        imageUrl: 'https://images.unsplash.com/photo-1498557850523-fd3d118b962e?w=300&h=300&fit=crop',
         description: '进口蓝莓，营养丰富',
         status: 1
       },
@@ -135,7 +135,7 @@ const seedData = async () => {
         commissionRate: 10,
         stock: 90,
         sales: 0,
-        imageUrl: 'https://via.placeholder.com/300x300?text=大米',
+        imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=300&h=300&fit=crop',
         description: '东北五常大米，5kg装',
         status: 1
       },
@@ -146,7 +146,7 @@ const seedData = async () => {
         commissionRate: 12,
         stock: 85,
         sales: 0,
-        imageUrl: 'https://via.placeholder.com/300x300?text=猕猴桃',
+        imageUrl: 'https://images.unsplash.com/photo-1585059895524-72359e06133a?w=300&h=300&fit=crop',
         description: '新西兰进口猕猴桃',
         status: 1
       },
@@ -157,7 +157,7 @@ const seedData = async () => {
         commissionRate: 15,
         stock: 30,
         sales: 0,
-        imageUrl: 'https://via.placeholder.com/300x300?text=西红柿',
+        imageUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=300&h=300&fit=crop',
         description: '有机种植西红柿，2kg装',
         status: 0 // 已下架
       },
@@ -168,7 +168,7 @@ const seedData = async () => {
         commissionRate: 8,
         stock: 25,
         sales: 0,
-        imageUrl: 'https://via.placeholder.com/300x300?text=牛肉',
+        imageUrl: 'https://images.unsplash.com/photo-1603048588665-791ca8aea617?w=300&h=300&fit=crop',
         description: '优质牛肉，1kg装',
         status: 0 // 已下架
       }
