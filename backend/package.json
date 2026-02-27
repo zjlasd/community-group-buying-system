@@ -7,7 +7,9 @@
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "init-db": "node src/scripts/init-db.js",
-    "seed": "node src/scripts/seed-data.js"
+    "seed": "node src/scripts/seed-data.js",
+    "demo": "node src/scripts/generate-demo-data.js",
+    "clean-demo": "node src/scripts/clean-demo-data.js"
   },
   "keywords": [
     "community",

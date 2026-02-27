@@ -14,19 +14,19 @@
       <!-- 统计卡片 -->
       <div class="stats-container">
         <div class="stat-card">
-          <div class="stat-value">128</div>
+          <div class="stat-value">{{ stats.total }}</div>
           <div class="stat-label">总客户数</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">86</div>
+          <div class="stat-value">{{ stats.active }}</div>
           <div class="stat-label">活跃客户</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">42</div>
+          <div class="stat-value">{{ stats.sleeping }}</div>
           <div class="stat-label">沉睡客户</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">18</div>
+          <div class="stat-value">{{ stats.vip }}</div>
           <div class="stat-label">VIP客户</div>
         </div>
       </div>
@@ -188,8 +188,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { getCustomerList, getCustomerDetail, type Customer, type CustomerStats } from '@/api/customer'
 
 const loading = ref(false)
 const formDialogVisible = ref(false)
@@ -206,7 +207,7 @@ const searchForm = reactive({
 const pagination = reactive({
   page: 1,
   size: 10,
-  total: 25
+  total: 0
 })
 
 const customerForm = reactive({
@@ -234,172 +235,107 @@ const customerRules: FormRules = {
   ]
 }
 
-// 模拟客户数据
-const customerList = ref([
-  {
-    id: 1,
-    name: '王女士',
-    phone: '138****5678',
-    address: '阳光小区3栋1单元201',
-    tag: 'VIP客户',
-    orderCount: 32,
-    totalAmount: 4856.5,
-    lastOrderTime: '2024-02-24 10:30:25',
-    remark: '喜欢车厘子，每周都买',
-    orders: [
-      { orderNo: 'O202402240001', amount: 158.5, status: '已完成', createTime: '2024-02-24 10:30:25' },
-      { orderNo: 'O202402170008', amount: 268.0, status: '已完成', createTime: '2024-02-17 09:15:20' }
-    ]
-  },
-  {
-    id: 2,
-    name: '李先生',
-    phone: '139****1234',
-    address: '阳光小区5栋2单元302',
-    tag: '活跃客户',
-    orderCount: 18,
-    totalAmount: 2680.0,
-    lastOrderTime: '2024-02-24 09:15:18',
-    remark: '公司采购，量大',
-    orders: [
-      { orderNo: 'O202402240002', amount: 268.0, status: '已完成', createTime: '2024-02-24 09:15:18' }
-    ]
-  },
-  {
-    id: 3,
-    name: '赵女士',
-    phone: '136****8765',
-    address: '阳光小区2栋3单元101',
-    tag: '活跃客户',
-    orderCount: 25,
-    totalAmount: 3856.2,
-    lastOrderTime: '2024-02-23 16:45:33',
-    remark: '电梯坏了，送到一楼',
-    orders: []
-  },
-  {
-    id: 4,
-    name: '刘阿姨',
-    phone: '137****4321',
-    address: '阳光小区1栋1单元501',
-    tag: 'VIP客户',
-    orderCount: 45,
-    totalAmount: 6580.5,
-    lastOrderTime: '2024-02-23 14:20:10',
-    remark: '老客户，质量要好',
-    orders: []
-  },
-  {
-    id: 5,
-    name: '陈女士',
-    phone: '135****9876',
-    address: '阳光小区4栋2单元402',
-    tag: '活跃客户',
-    orderCount: 12,
-    totalAmount: 1850.0,
-    lastOrderTime: '2024-02-22 11:30:50',
-    remark: '周末配送',
-    orders: []
-  },
-  {
-    id: 6,
-    name: '张先生',
-    phone: '133****5555',
-    address: '阳光小区6栋1单元103',
-    tag: '沉睡客户',
-    orderCount: 3,
-    totalAmount: 380.0,
-    lastOrderTime: '2024-01-15 14:20:30',
-    remark: '很久没下单了',
-    orders: []
+// 客户列表和统计数据
+const customerList = ref<Customer[]>([])
+const stats = reactive<CustomerStats>({
+  total: 0,
+  active: 0,
+  sleeping: 0,
+  vip: 0
+})
+
+// 获取客户列表
+const fetchCustomers = async () => {
+  try {
+    loading.value = true
+    const res = await getCustomerList({
+      page: pagination.page,
+      pageSize: pagination.size,
+      keyword: searchForm.keyword,
+      tag: searchForm.tag
+    })
+    
+    if (res.code === 200 && res.data) {
+      customerList.value = res.data.list
+      pagination.total = res.data.total
+      
+      // 更新统计数据
+      if (res.data.stats) {
+        stats.total = res.data.stats.total
+        stats.active = res.data.stats.active
+        stats.sleeping = res.data.stats.sleeping
+        stats.vip = res.data.stats.vip
+      }
+    }
+  } catch (error) {
+    console.error('获取客户列表失败:', error)
+    ElMessage.error('获取客户列表失败')
+  } finally {
+    loading.value = false
   }
-])
+}
 
 const getTagType = (tag: string) => {
   const types: Record<string, any> = {
     'VIP客户': 'danger',
     '活跃客户': 'success',
-    '沉睡客户': 'info'
+    '沉睡客户': 'info',
+    '普通客户': 'primary'
   }
   return types[tag] || 'primary'
 }
 
 const handleSearch = () => {
-  loading.value = true
-  setTimeout(() => {
-    loading.value = false
-    ElMessage.success('搜索完成')
-  }, 500)
+  pagination.page = 1
+  fetchCustomers()
 }
 
 const handleReset = () => {
   searchForm.tag = ''
   searchForm.keyword = ''
-  handleSearch()
+  pagination.page = 1
+  fetchCustomers()
 }
 
+// 页面加载时获取数据
+onMounted(() => {
+  fetchCustomers()
+})
+
 const showAddDialog = () => {
-  isEdit.value = false
-  customerForm.id = undefined
-  customerForm.name = ''
-  customerForm.phone = ''
-  customerForm.address = ''
-  customerForm.tag = ''
-  customerForm.remark = ''
-  formDialogVisible.value = true
+  ElMessage.info('添加客户功能暂未实现（客户通过下单自动添加）')
+  // isEdit.value = false
+  // customerForm.id = undefined
+  // customerForm.name = ''
+  // customerForm.phone = ''
+  // customerForm.address = ''
+  // customerForm.tag = ''
+  // customerForm.remark = ''
+  // formDialogVisible.value = true
 }
 
 const editCustomer = (row: any) => {
-  isEdit.value = true
-  customerForm.id = row.id
-  customerForm.name = row.name
-  customerForm.phone = row.phone
-  customerForm.address = row.address
-  customerForm.tag = row.tag
-  customerForm.remark = row.remark
-  formDialogVisible.value = true
+  ElMessage.info('编辑客户功能暂未实现')
 }
 
 const submitCustomer = () => {
-  customerFormRef.value?.validate((valid) => {
-    if (valid) {
-      if (isEdit.value) {
-        // 编辑客户
-        const customer = customerList.value.find(c => c.id === customerForm.id)
-        if (customer) {
-          customer.name = customerForm.name
-          customer.phone = customerForm.phone
-          customer.address = customerForm.address
-          customer.tag = customerForm.tag
-          customer.remark = customerForm.remark
-        }
-        ElMessage.success('客户信息更新成功')
-      } else {
-        // 添加客户
-        const newCustomer = {
-          id: Date.now(),
-          name: customerForm.name,
-          phone: customerForm.phone,
-          address: customerForm.address,
-          tag: customerForm.tag,
-          orderCount: 0,
-          totalAmount: 0,
-          lastOrderTime: '-',
-          remark: customerForm.remark,
-          orders: []
-        }
-        customerList.value.unshift(newCustomer)
-        pagination.total++
-        ElMessage.success('客户添加成功')
-      }
-      formDialogVisible.value = false
-    }
-  })
+  ElMessage.info('提交客户功能暂未实现')
 }
 
-const viewDetail = (row: any) => {
-  currentCustomer.value = row
-  detailDialogVisible.value = true
+const viewDetail = async (row: Customer) => {
+  try {
+    loading.value = true
+    const res = await getCustomerDetail(row.phone)
+    if (res.code === 200 && res.data) {
+      currentCustomer.value = res.data
+      detailDialogVisible.value = true
+    }
+  } catch (error) {
+    console.error('获取客户详情失败:', error)
+    ElMessage.error('获取客户详情失败')
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 

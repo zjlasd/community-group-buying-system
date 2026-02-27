@@ -36,17 +36,15 @@ exports.getCustomers = async (req, res) => {
     if (keyword) {
       where[Op.or] = [
         { customer_name: { [Op.like]: `%${keyword}%` } },
-        { customer_phone: { [Op.like]: `%${keyword}%` } },
-        { customer_address: { [Op.like]: `%${keyword}%` } }
+        { customer_phone: { [Op.like]: `%${keyword}%` } }
       ]
     }
 
     // 获取该团长的所有客户（按客户手机号分组）
     const customers = await db.Order.findAll({
       attributes: [
-        'customer_name',
+        [db.sequelize.fn('MAX', db.sequelize.col('customer_name')), 'customer_name'], // 使用MAX避免GROUP BY错误
         'customer_phone',
-        'customer_address',
         [db.sequelize.fn('COUNT', db.sequelize.col('id')), 'orderCount'],
         [db.sequelize.fn('SUM', db.sequelize.col('total_amount')), 'totalAmount'],
         [db.sequelize.fn('MAX', db.sequelize.col('created_at')), 'lastOrderTime']
@@ -66,8 +64,7 @@ exports.getCustomers = async (req, res) => {
       WHERE leader_id = :leaderId
       ${keyword ? `AND (
         customer_name LIKE :keyword OR 
-        customer_phone LIKE :keyword OR 
-        customer_address LIKE :keyword
+        customer_phone LIKE :keyword
       )` : ''}
     `, {
       replacements: {
@@ -104,7 +101,7 @@ exports.getCustomers = async (req, res) => {
       return {
         name: customer.customer_name,
         phone: customer.customer_phone,
-        address: customer.customer_address || '-',
+        address: '-', // orders表中没有地址字段，默认显示'-'
         tag: customerTag,
         orderCount,
         totalAmount,
@@ -145,9 +142,8 @@ exports.getCustomerDetail = async (req, res) => {
     // 获取客户的订单统计
     const customerStats = await db.Order.findOne({
       attributes: [
-        'customer_name',
+        [db.sequelize.fn('MAX', db.sequelize.col('customer_name')), 'customer_name'], // 使用MAX避免GROUP BY错误
         'customer_phone',
-        'customer_address',
         [db.sequelize.fn('COUNT', db.sequelize.col('id')), 'orderCount'],
         [db.sequelize.fn('SUM', db.sequelize.col('total_amount')), 'totalAmount'],
         [db.sequelize.fn('MAX', db.sequelize.col('created_at')), 'lastOrderTime']
@@ -199,7 +195,7 @@ exports.getCustomerDetail = async (req, res) => {
     res.json(success({
       name: customerStats.customer_name,
       phone: customerStats.customer_phone,
-      address: customerStats.customer_address || '-',
+      address: '-', // orders表中没有地址字段
       tag,
       orderCount,
       totalAmount,
