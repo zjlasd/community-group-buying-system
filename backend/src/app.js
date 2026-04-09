@@ -37,6 +37,7 @@ app.use('/api/communities', require('./routes/communities'))
 app.use('/api/commissions', require('./routes/commissions'))
 app.use('/api/withdrawals', require('./routes/withdrawals'))
 app.use('/api/customers', require('./routes/customers'))
+app.use('/api/ai', require('./routes/ai'))
 // TODO: 添加用户管理路由
 // app.use('/api/users', require('./routes/users'))
 
