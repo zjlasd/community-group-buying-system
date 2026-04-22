@@ -27,6 +27,19 @@ export const sendChatMessage = async (
   const token = localStorage.getItem('token')
   const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
 
+  // 保证 onDone 和 onError 只会触发一次，避免多次回调导致残留字符
+  let finished = false
+  const safeDone = () => {
+    if (finished) return
+    finished = true
+    onDone()
+  }
+  const safeError = (msg: string) => {
+    if (finished) return
+    finished = true
+    onError(msg)
+  }
+
   try {
     const response = await fetch(`${baseUrl}/ai/chat`, {
       method: 'POST',
@@ -39,51 +52,76 @@ export const sendChatMessage = async (
 
     if (!response.ok) {
       const errData = await response.json().catch(() => null)
-      onError(errData?.message || 'AI服务暂时不可用')
+      safeError(errData?.message || 'AI服务暂时不可用')
       return
     }
 
     const reader = response.body?.getReader()
-    const decoder = new TextDecoder()
+    // stream: true 模式下，TextDecoder 会保留 UTF-8 字符中间切分的字节
+    // 避免中文字符被切成乱码
+    const decoder = new TextDecoder('utf-8')
 
     if (!reader) {
-      onError('无法建立流式连接')
+      safeError('无法建立流式连接')
       return
+    }
+
+    // 行缓冲区：累积未处理完的 SSE 数据，按 "\n" 切分时保留不完整的最后一段
+    let buffer = ''
+
+    // 处理 SSE 单行数据
+    const processLine = (line: string): boolean => {
+      // 返回值：true = 流已结束（收到 [DONE] 或 error），需要退出外层循环
+      const trimmed = line.trim()
+      if (!trimmed || !trimmed.startsWith('data: ')) return false
+
+      const data = trimmed.slice(6).trim()
+      if (data === '[DONE]') {
+        safeDone()
+        return true
+      }
+
+      try {
+        const parsed = JSON.parse(data)
+        if (parsed.content) {
+          onChunk(parsed.content)
+        }
+        if (parsed.error) {
+          safeError(parsed.error)
+          return true
+        }
+      } catch {
+        // 忽略无法解析的 JSON（通常是不完整片段）
+      }
+      return false
     }
 
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
 
-      const text = decoder.decode(value)
-      const lines = text.split('\n')
+      // stream: true 关键参数，避免中文被切成乱码
+      buffer += decoder.decode(value, { stream: true })
+
+      // 按 "\n" 切分，最后一段（可能不完整）保留到 buffer 里下次处理
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6)
-          if (data === '[DONE]') {
-            onDone()
-            return
-          }
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.content) {
-              onChunk(parsed.content)
-            }
-            if (parsed.error) {
-              onError(parsed.error)
-              return
-            }
-          } catch {
-            // 忽略解析错误
-          }
-        }
+        const shouldExit = processLine(line)
+        if (shouldExit) return
       }
     }
 
-    onDone()
+    // 读取完毕后，刷新 decoder 并处理 buffer 里残留的最后一行
+    buffer += decoder.decode()
+    if (buffer.trim()) {
+      processLine(buffer)
+    }
+
+    safeDone()
   } catch (err) {
-    onError('网络连接失败，请检查AI服务是否启动')
+    safeError('网络连接失败，请检查AI服务是否启动')
   }
 }
 

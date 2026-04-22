@@ -70,11 +70,6 @@
               </el-button>
             </el-form-item>
           </el-form>
-
-          <div class="tips">
-            <p>管理员账号：admin / admin123</p>
-            <p>团长账号：leader1 / leader123</p>
-          </div>
         </div>
       </div>
     </div>
@@ -228,19 +223,5 @@ const handleLogin = async () => {
   text-align: center;
   margin-bottom: 30px;
   color: #303133;
-}
-
-.tips {
-  margin-top: 20px;
-  padding: 15px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
-  font-size: 13px;
-  color: #606266;
-  line-height: 1.8;
-}
-
-.tips p {
-  margin: 5px 0;
 }
 </style>
