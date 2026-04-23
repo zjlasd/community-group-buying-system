@@ -124,8 +124,8 @@
       </el-container>
     </el-container>
 
-    <!-- AI 智能助手（全局悬浮） -->
-    <AIChat />
+
+    <!-- <AIChat /> -->
   </div>
 </template>
 
@@ -134,7 +134,7 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import AIChat from '@/components/AIChat/index.vue'
+// import AIChat from '@/components/AIChat/index.vue'
 
 const route = useRoute()
 const router = useRouter()
